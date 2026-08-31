@@ -1954,9 +1954,10 @@ body[data-view="game-debugger"] #root {
   background-color: var(--vscode-list-hoverBackground);
 }
 
-.debug-functions-view-switcher button.active {
-  color: var(--vscode-foreground);
-  background-color: var(--vscode-input-background);
+.debug-functions-view-switcher button.active,
+.debug-functions-view-switcher button.active:hover {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
 }
 
