@@ -212,7 +212,7 @@ async function runMcdk(): Promise<void> {
     }
 
     // 检查是否已有 Minecraft 进程在运行（sub 模式）
-    const mcRunning = await ptvsd.isMinecraftRunning();
+    const mcRunning = await ptvsd.isModpcRunning();
 
     // 不设置 ptvsd 环境变量，正常启动（无调试）
     const env: NodeJS.ProcessEnv = { 

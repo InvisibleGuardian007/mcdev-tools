@@ -23,7 +23,7 @@ import {
     getDebugConfigFromSettings
 } from './index';
 import { saveSession, getLastSession, clearSession } from './storage';
-import { isMinecraftRunning } from './processDetector';
+import { isModpcRunning } from './processDetector';
 
 /**
  * 获取 mcdk.exe 路径
@@ -78,7 +78,7 @@ async function tryReattachExistingSession(
     ptvsdConfig: PtvsdDebugConfig
 ): Promise<vscode.DebugConfiguration | undefined> {
     // 首先检查是否有 Minecraft 进程在运行
-    const mcRunning = await isMinecraftRunning();
+    const mcRunning = await isModpcRunning();
     if (!mcRunning) {
         // 没有 Minecraft 进程，清理所有会话
         await clearSession();
@@ -229,7 +229,7 @@ export async function launchPtvsdDebugSession(
     }
 
     // 检查是否已有 Minecraft 进程在运行（sub 模式）
-    const mcRunning = await isMinecraftRunning();
+    const mcRunning = await isModpcRunning();
 
     // 设置环境变量，MCDK 会读取这些变量来配置 ptvsd
     const env: NodeJS.ProcessEnv = {
@@ -352,7 +352,7 @@ export async function launchNewInstance(
     const mcdkPath = getMcdkPath(workspaceFolder, mcdkPathConfig, extensionPath);
 
     // 检查是否已有 Minecraft 进程在运行（sub 模式）
-    const mcRunning = await isMinecraftRunning();
+    const mcRunning = await isModpcRunning();
 
     // 创建会话（分配新端口）
     let session: PtvsdDebugSession;
