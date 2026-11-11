@@ -69,6 +69,46 @@ export function upsertDshPatchEntry(content: string, entry: string, options: Dsh
     return /\r?\n$/.test(text) && !result.endsWith('\n') ? `${result}\n` : result;
 }
 
+/**
+ * 去掉我们以前手写进 DSH 的条目（改由 Magpie 统一管理之后要清掉，否则同一个 minecraft 服务器会出现两份）。
+ * 找不到就原样返回。
+ */
+export function removeDshPatchEntry(content: string, options: DshEntryOptions = {}): { content: string; removed: boolean } {
+    const name = options.name || 'minecraft';
+    const text = content || '';
+    const lines = text.split(/\r?\n/);
+    const range = findTopLevelEntry(lines, `id: mcdev-mcp-${name}`);
+    if (!range) {
+        return { content: text, removed: false };
+    }
+    const next = [...lines.slice(0, range.start), ...lines.slice(range.end)];
+    const result = next.join('\n');
+    return {
+        content: /\r?\n$/.test(text) && !result.endsWith('\n') ? `${result}\n` : result,
+        removed: true
+    };
+}
+
+/** 清掉每个 profile 里的手写条目，返回真正被改写的文件 */
+export function removeDshMcpEntries(options: DshEntryOptions & { root?: string } = {}): string[] {
+    const changed: string[] = [];
+    for (const file of listDshPatchFiles(options.root)) {
+        try {
+            const content = fs.readFileSync(file, 'utf8');
+            const result = removeDshPatchEntry(content, options);
+            if (!result.removed) {
+                continue;
+            }
+            fs.writeFileSync(`${file}.mcdev.bak`, content, 'utf8');
+            fs.writeFileSync(file, result.content, 'utf8');
+            changed.push(file);
+        } catch (error) {
+            console.warn('[dshIntegration] 清理旧条目失败', file, error);
+        }
+    }
+    return changed;
+}
+
 export function resolveDshRoot(root?: string): string {
     if (root && root.trim()) {
         return root.trim();

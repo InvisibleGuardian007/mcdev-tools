@@ -66,10 +66,18 @@ export const McpServerConfig: React.FC<Props> = ({
 
   const [probe, setProbe] = useState<ProbeState>({ status: 'idle', tools: [] });
   const [notice, setNotice] = useState<string>('');
+  const [magpiePath, setMagpiePath] = useState<string>('');
+  const [magpieChecked, setMagpieChecked] = useState(false);
+  const [magpieInstalling, setMagpieInstalling] = useState(false);
 
   useEffect(() => {
     setProbe({ status: 'idle', tools: [] });
   }, [endpoint]);
+
+  useEffect(() => {
+    // 一次探测就够：Magpie 在不在、可执行文件在哪
+    vscode.postMessage({ type: 'detectMagpie' });
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -94,18 +102,28 @@ export const McpServerConfig: React.FC<Props> = ({
         }
       } else if (msg?.type === 'copied') {
         setNotice(msg.ok ? t.mcpAgentCopied : t.mcpAgentCopyFailed);
-      } else if (msg?.type === 'dshInstalled') {
+      } else if (msg?.type === 'magpieDetected') {
+        setMagpieChecked(true);
+        setMagpiePath(typeof msg.path === 'string' ? msg.path : '');
+      } else if (msg?.type === 'magpieInstalled') {
+        setMagpieInstalling(false);
+        if (typeof msg.path === 'string') {
+          setMagpiePath(msg.path);
+          setMagpieChecked(true);
+        }
         if (msg.ok) {
-          const count = Array.isArray(msg.files) ? msg.files.length : 0;
-          const changed = Array.isArray(msg.changed) ? msg.changed.length : 0;
+          const agents = Array.isArray(msg.agents) ? msg.agents.filter((item: any) => typeof item === 'string' && item) : [];
           setNotice(
-            changed > 0
-              ? t.mcpAgentDshInstalled.replace('{count}', String(count))
-              : t.mcpAgentDshUnchanged.replace('{count}', String(count))
+            agents.length
+              ? t.mcpAgentMagpieInstalled.replace('{agents}', agents.join(', '))
+              : t.mcpAgentMagpieSynced
           );
         } else {
-          const reason = msg.error === 'no dsh profiles' ? t.mcpAgentDshMissing : String(msg.error);
-          setNotice(t.mcpAgentDshFailed.replace('{error}', reason));
+          setNotice(
+            msg.error === 'missing magpie'
+              ? t.mcpAgentMagpieMissing
+              : t.mcpAgentMagpieFailed.replace('{error}', String(msg.error || '?'))
+          );
         }
       }
     };
@@ -143,12 +161,19 @@ export const McpServerConfig: React.FC<Props> = ({
     vscode.postMessage({ type: 'writeVscodeMcp', url: endpoint });
   };
 
-  const installDsh = () => {
+  const installMagpie = () => {
     setNotice('');
-    vscode.postMessage({ type: 'installDshMcp', url: endpoint });
+    setMagpieInstalling(true);
+    vscode.postMessage({ type: 'installMagpieMcp', url: endpoint });
   };
 
   const mcpJson = `${JSON.stringify({ servers: { [SERVER_NAME]: { type: 'http', url: endpoint } } }, null, 2)}\n`;
+
+  // 只显示最后两级目录，完整路径放在 title 里
+  const shortMagpiePath = useMemo(
+    () => (magpiePath ? magpiePath.split(/[\\/]/).slice(-2).join('/') : ''),
+    [magpiePath]
+  );
 
   const statusText = !enabled
     ? t.mcpAgentStatusDisabled
@@ -252,9 +277,15 @@ export const McpServerConfig: React.FC<Props> = ({
             <span className="codicon codicon-copy"></span>
             {t.mcpAgentCopyBrief}
           </button>
-          <button type="button" className="mcp-agent-btn" onClick={installDsh} title={t.mcpAgentInstallDshHint}>
+          <button
+            type="button"
+            className="mcp-agent-btn"
+            onClick={installMagpie}
+            disabled={magpieInstalling}
+            title={t.mcpAgentInstallMagpieHint}
+          >
             <span className="codicon codicon-plug"></span>
-            {t.mcpAgentInstallDsh}
+            {t.mcpAgentInstallMagpie}
           </button>
           <button type="button" className="mcp-agent-btn" onClick={() => copyText(mcpJson)}>
             <span className="codicon codicon-json"></span>
@@ -267,6 +298,14 @@ export const McpServerConfig: React.FC<Props> = ({
         </div>
 
         {notice && <div className="mcp-notice">{notice}</div>}
+        {magpieChecked && (
+          <div className={'mcp-magpie' + (magpiePath ? ' is-ok' : ' is-warn')} title={magpiePath || undefined}>
+            <span className={`codicon ${magpiePath ? 'codicon-check' : 'codicon-warning'}`}></span>
+            {magpiePath
+              ? t.mcpAgentMagpieReady.replace('{path}', shortMagpiePath)
+              : t.mcpAgentMagpieMissing}
+          </div>
+        )}
         <div className="mcp-agent-hint">{t.mcpAgentRestartHint}</div>
       </div>
     </div>

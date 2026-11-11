@@ -7,6 +7,8 @@ import {
     buildDshPatchEntry,
     installDshMcpEntry,
     listDshPatchFiles,
+    removeDshMcpEntries,
+    removeDshPatchEntry,
     upsertDshPatchEntry,
 } from './dshIntegration';
 
@@ -95,6 +97,35 @@ test('installDshMcpEntry writes every profile and is idempotent', () => {
     const moved = installDshMcpEntry({ url: 'http://localhost:20000/mcp', root });
     assert.equal(moved.changed.length, 2);
     assert.ok(fs.readFileSync(path.join(webDir, 'cordis.patch.yml'), 'utf8').includes('http://localhost:20000/mcp'));
+    fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('removeDshPatchEntry 只删自己那条，别人的邻居不动', () => {
+    const base = ['- insert: # magpie', '    - id: magpie-mcp-fetch', '      name: "@deepseek-ai/dsh-mcp-client"', ''].join('\n');
+    const withOurs = upsertDshPatchEntry(base, buildDshPatchEntry(URL));
+    const result = removeDshPatchEntry(withOurs);
+    assert.equal(result.removed, true);
+    assert.ok(!result.content.includes('mcdev-mcp-minecraft'));
+    assert.ok(result.content.includes('magpie-mcp-fetch'));
+    assert.equal(result.content.trim(), base.trim());
+
+    const again = removeDshPatchEntry(result.content);
+    assert.equal(again.removed, false, '再删一次是空操作');
+    assert.equal(again.content, result.content);
+});
+
+test('removeDshMcpEntries 清掉所有 profile 里的旧条目', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mcdev-dsh-rm-'));
+    const webDir = path.join(root, 'profiles', 'web');
+    fs.mkdirSync(webDir, { recursive: true });
+    const file = path.join(webDir, 'cordis.patch.yml');
+    fs.writeFileSync(file, upsertDshPatchEntry('- insert: # magpie\n    - id: magpie-mcp-fetch\n', buildDshPatchEntry(URL)), 'utf8');
+
+    const changed = removeDshMcpEntries({ root });
+    assert.deepEqual(changed, [file]);
+    assert.ok(!fs.readFileSync(file, 'utf8').includes('mcdev-mcp-minecraft'));
+    assert.ok(fs.existsSync(`${file}.mcdev.bak`));
+    assert.deepEqual(removeDshMcpEntries({ root }), [], '第二次已经没有可删的');
     fs.rmSync(root, { recursive: true, force: true });
 });
 

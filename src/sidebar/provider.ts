@@ -20,7 +20,8 @@ import {
 } from '../hostBridge/worldMods';
 import { buildAgentBrief, buildMcpUrl, probeMcpServer } from '../hostBridge/mcpAgent';
 import { clearProcessDetectionCache, isModpcRunning } from '../debugger/ptvsd/processDetector';
-import { buildDshPatchEntry, installDshMcpEntry } from '../hostBridge/dshIntegration';
+import { removeDshMcpEntries } from '../hostBridge/dshIntegration';
+import { buildMagpieAddArgs, buildMagpieSyncArgs, parseWrittenAgents, resolveMagpieExecutable, runMagpie } from '../hostBridge/magpieIntegration';
 import { copyToClipboard } from '../utils/clipboard';
 
 // 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
@@ -157,10 +158,10 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleWriteVscodeMcp(webview, msg.url);
             } else if (msg?.type === 'copyAgentBrief') {
                 await this.handleCopyAgentBrief(webview, msg.url, msg.tools);
-            } else if (msg?.type === 'installDshMcp') {
-                await this.handleInstallDshMcp(webview, msg.url);
-            } else if (msg?.type === 'copyDshSnippet') {
-                await this.handleCopyDshSnippet(webview, msg.url);
+            } else if (msg?.type === 'installMagpieMcp') {
+                await this.handleInstallMagpieMcp(webview, msg.url);
+            } else if (msg?.type === 'detectMagpie') {
+                await this.handleDetectMagpie(webview);
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -326,28 +327,75 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
     }
 
     /**
-     * 处理 installDshMcp 消息：把 mcdk 端点写进 DSH 各 profile 的 cordis.patch.yml
+     * 找 Magpie 可执行文件：设置 mcdev-tools.magpie.path → 环境变量/PATH/常见位置 → 正在运行的进程
      */
-    private async handleInstallDshMcp(webview: vscode.Webview, url?: string): Promise<void> {
-        const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
-        const result = installDshMcpEntry({ url: endpoint });
+    private async resolveMagpiePath(): Promise<string | undefined> {
+        const configured = vscode.workspace.getConfiguration('mcdev-tools').get<string>('magpie.path', '') || '';
+        return resolveMagpieExecutable(configured);
+    }
+
+    /**
+     * 处理 detectMagpie 消息：只探测 Magpie 在不在，回传路径
+     */
+    private async handleDetectMagpie(webview: vscode.Webview): Promise<void> {
+        const path = await this.resolveMagpiePath();
         try {
-            await webview.postMessage({ type: 'dshInstalled', ...result });
+            await webview.postMessage({ type: 'magpieDetected', found: !!path, path: path || '' });
         } catch (e) {
-            console.error('回传 DSH 接入结果失败', e);
+            console.error('回传 Magpie 探测结果失败', e);
         }
     }
 
     /**
-     * 处理 copyDshSnippet 消息：只复制 YAML 片段，方便自己贴
+     * 处理 installMagpieMcp 消息：先在 Magpie 库里登记 minecraft 端点，再 sync 到所有 Agent。
+     * 顺手清掉以前手写进 DSH profile 的旧条目，避免同一个服务器出现两份。
      */
-    private async handleCopyDshSnippet(webview: vscode.Webview, url?: string): Promise<void> {
+    private async handleInstallMagpieMcp(webview: vscode.Webview, url?: string): Promise<void> {
         const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
-        const ok = await copyToClipboard(buildDshPatchEntry(endpoint));
+        const exePath = await this.resolveMagpiePath();
+        if (!exePath) {
+            await this.postMagpieResult(webview, { ok: false, error: 'missing magpie' });
+            return;
+        }
+        const added = await runMagpie(exePath, buildMagpieAddArgs(endpoint));
+        if (!added.ok) {
+            await this.postMagpieResult(webview, {
+                ok: false,
+                path: exePath,
+                error: added.errorCode === 'missingExe' ? 'missing magpie' : added.output
+            });
+            return;
+        }
+        const synced = await runMagpie(exePath, buildMagpieSyncArgs());
+        const cleaned = removeDshMcpEntries();
+        if (cleaned.length) {
+            console.log(`[magpie] 已清理旧的 DSH 手写条目：${cleaned.join(', ')}`);
+        }
+        const agents = parseWrittenAgents(`${added.output}\n${synced.output}`);
+        await this.postMagpieResult(webview, {
+            ok: synced.ok,
+            path: exePath,
+            agents,
+            cleaned: cleaned.length,
+            error: synced.ok ? undefined : synced.output
+        });
+        if (synced.ok) {
+            void vscode.window.showInformationMessage(
+                agents.length
+                    ? `已通过 Magpie 写入：${agents.join(', ')}`
+                    : '已通过 Magpie 写入 MCP 配置'
+            );
+        }
+    }
+
+    private async postMagpieResult(
+        webview: vscode.Webview,
+        payload: { ok: boolean; path?: string; agents?: string[]; cleaned?: number; error?: string }
+    ): Promise<void> {
         try {
-            await webview.postMessage({ type: 'copied', ok });
+            await webview.postMessage({ type: 'magpieInstalled', ...payload });
         } catch (e) {
-            console.error('回传复制结果失败', e);
+            console.error('回传 Magpie 接入结果失败', e);
         }
     }
 

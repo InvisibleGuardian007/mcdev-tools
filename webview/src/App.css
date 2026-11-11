@@ -2695,6 +2695,34 @@ button.mod-review-status:disabled {
   opacity: 0.85;
 }
 
+.mcp-magpie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mcp-magpie .codicon {
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.mcp-magpie.is-ok {
+  color: var(--vscode-charts-green, #4ec9b0);
+}
+
+.mcp-magpie.is-warn {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  white-space: normal;
+  align-items: flex-start;
+}
+
 .keybind-display {
   display: flex;
   align-items: center;

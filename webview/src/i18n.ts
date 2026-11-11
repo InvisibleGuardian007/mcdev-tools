@@ -140,12 +140,13 @@ export interface I18nText {
   mcpAgentStatusOk: string;
   mcpAgentStatusFail: string;
   mcpAgentCopyBrief: string;
-  mcpAgentInstallDsh: string;
-  mcpAgentInstallDshHint: string;
-  mcpAgentDshInstalled: string;
-  mcpAgentDshUnchanged: string;
-  mcpAgentDshFailed: string;
-  mcpAgentDshMissing: string;
+  mcpAgentInstallMagpie: string;
+  mcpAgentInstallMagpieHint: string;
+  mcpAgentMagpieReady: string;
+  mcpAgentMagpieMissing: string;
+  mcpAgentMagpieInstalled: string;
+  mcpAgentMagpieSynced: string;
+  mcpAgentMagpieFailed: string;
   mcpAgentCopyJson: string;
   mcpAgentWriteJson: string;
   mcpAgentCopied: string;
@@ -589,12 +590,13 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentStatusOk: 'Connected · {count} tools available',
     mcpAgentStatusFail: 'Cannot reach it: {error}',
     mcpAgentCopyBrief: 'Copy agent brief',
-    mcpAgentInstallDsh: 'Connect DeepSeek Harness',
-    mcpAgentInstallDshHint: 'Appends the minecraft MCP server to every DSH profile under ~/.dsh/profiles; restart DSH to load it.',
-    mcpAgentDshInstalled: 'Added to {count} DSH profile(s). Restart DSH to load it.',
-    mcpAgentDshUnchanged: '{count} DSH profile(s) already up to date.',
-    mcpAgentDshFailed: 'Writing the DSH config failed: {error}',
-    mcpAgentDshMissing: 'no DSH profile was found under ~/.dsh/profiles',
+    mcpAgentInstallMagpie: 'Install via Magpie',
+    mcpAgentInstallMagpieHint: 'Adds the minecraft MCP server to the Magpie library, then runs library sync so every Agent inherits it.',
+    mcpAgentMagpieReady: 'Magpie: {path}',
+    mcpAgentMagpieMissing: 'Magpie not found. Set mcdev-tools.magpie.path, or start Magpie once so its path can be detected.',
+    mcpAgentMagpieInstalled: 'Written through Magpie into: {agents}',
+    mcpAgentMagpieSynced: 'Registered in the Magpie library; no Agent needed a new entry.',
+    mcpAgentMagpieFailed: 'Magpie install failed: {error}',
     mcpAgentCopyJson: 'Copy mcp.json',
     mcpAgentWriteJson: 'Write .vscode/mcp.json',
     mcpAgentCopied: 'Copied to clipboard',
@@ -1039,12 +1041,13 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentStatusOk: '已连接 · 可用工具 {count} 个',
     mcpAgentStatusFail: '连不上：{error}',
     mcpAgentCopyBrief: '复制 Agent 说明',
-    mcpAgentInstallDsh: '接入 DeepSeek Harness',
-    mcpAgentInstallDshHint: '把 minecraft 这个 MCP 服务器追加到 ~/.dsh/profiles 下每个 profile；重启 DSH 后生效。',
-    mcpAgentDshInstalled: '已写入 {count} 个 DSH profile，重启 DSH 后生效。',
-    mcpAgentDshUnchanged: '{count} 个 DSH profile 已经是最新，无需改动。',
-    mcpAgentDshFailed: '写入 DSH 配置失败：{error}',
-    mcpAgentDshMissing: '在 ~/.dsh/profiles 下没找到 DSH 配置',
+    mcpAgentInstallMagpie: '接入 Magpie（同步所有 Agent）',
+    mcpAgentInstallMagpieHint: '把 minecraft 这个 MCP 服务器登记进 Magpie 库，再执行 library sync 让所有 Agent 都拿到它。',
+    mcpAgentMagpieReady: 'Magpie：{path}',
+    mcpAgentMagpieMissing: '没找到 Magpie：可以在设置 mcdev-tools.magpie.path 指定可执行文件，或先启动一次 Magpie 让它被自动发现。',
+    mcpAgentMagpieInstalled: '已通过 Magpie 写入：{agents}',
+    mcpAgentMagpieSynced: '已登记进 Magpie 库，没有 Agent 需要新增条目。',
+    mcpAgentMagpieFailed: '接入 Magpie 失败：{error}',
     mcpAgentCopyJson: '复制 mcp.json',
     mcpAgentWriteJson: '写入 .vscode/mcp.json',
     mcpAgentCopied: '已复制到剪贴板',
