@@ -242,7 +242,7 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
     }
 
     /**
-     * 处理 reloadWorld 消息：先落盘当前配置，再让插件重启游戏
+     * 处理 reloadWorld 消息：先落盘当前配置，再让插件在游戏内重载存档（无连接时才重启游戏）
      */
     private async handleReloadWorld(webview: vscode.Webview, content?: string): Promise<void> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

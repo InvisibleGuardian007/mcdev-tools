@@ -100,6 +100,16 @@ export class HostBridgeManager implements vscode.Disposable {
         return this.server.request(sessionId, 'game/code/execute', { code, isClient }, 15_000);
     }
 
+    /**
+     * 让游戏在进程内重载当前存档（game/reload）。
+     * addons=true 时走 mcdk 的「addon 数据 + 游戏」完整重载路径，用于资源包（JSON/PNG/音效）等自动热更覆盖不到的改动。
+     * 返回体形如 { accepted: true }，游戏随后会自行退出存档并重新载入。
+     */
+    public async reloadGame(sessionId: string, options: { addons?: boolean } = {}): Promise<unknown> {
+        this.assertNotDisposed();
+        return this.server.request(sessionId, 'game/reload', { addons: options.addons === true }, 60_000);
+    }
+
     public async refreshSessions(): Promise<void> {
         // Explicit UI refresh only. Session readiness otherwise comes from stateChanged notifications.
         await this.server.refreshSessions();

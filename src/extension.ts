@@ -8,6 +8,7 @@ import { dynamicLibraryManager } from './native/dynamicLibraryManager';
 import { GameDebuggerPanel, HostBridgeManager, PerfMonitorPanel, PreparedHostBridgeLaunch } from './hostBridge';
 import { shutdownAllNativeProfilerCaptures } from './hostBridge/nativeProfilerCapture';
 import { applyWorldAutoMods } from './hostBridge/worldMods';
+import type { HostBridgeSessionSummary } from './hostBridge/types';
 import { McdevConfigStore } from './config';
 import { 
     McDevToolsDebugConfigurationProvider,
@@ -492,10 +493,66 @@ function killProcessByImage(imageName: string): Promise<boolean> {
 }
 
 /**
- * 重载存档：关掉 mcdk 终端 -> 结束游戏进程 -> 按当前配置重新启动。
- * 相比手动退出游戏再点运行，省掉一次点击和一次误用旧配置的风险。
+ * 找出可以接收 game/reload 的连接：优先已进入存档（game_ready）且游戏侧 IPC 就绪的会话。
+ */
+function findInGameBridgeSession(): HostBridgeSessionSummary | undefined {
+    const sessions = hostBridgeManager
+        ?.getSnapshot()
+        .sessions.filter(item => item.connected && item.state === 'game_ready') ?? [];
+    return sessions.find(item => item.gameIpcConnected) ?? sessions[0];
+}
+
+/**
+ * 重载存档。
+ * 首选游戏内重载（game/reload）：mcdk 让游戏自己退出存档、重新载入 addon 数据，游戏进程不退出。
+ * 只有在没有可用的游戏连接、或游戏内重载失败且用户确认时，才退回结束进程重启。
  */
 async function reloadGameWorld(): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('请先打开工作区');
+        return;
+    }
+
+    // 重载前按选中存档重新装配 MOD 目录，保证读盘时看到最新配置
+    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
+
+    const session = findInGameBridgeSession();
+    if (session && hostBridgeManager) {
+        try {
+            await hostBridgeManager.reloadGame(session.id, { addons: true });
+            vscode.window.showInformationMessage('存档已重载：游戏内重新载入当前存档（未退出游戏）');
+            return;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn('游戏内重载存档失败', error);
+            const choice = await vscode.window.showWarningMessage(
+                `游戏内重载存档失败：${message}`,
+                '重启游戏',
+                '取消'
+            );
+            if (choice !== '重启游戏') {
+                return;
+            }
+        }
+    } else {
+        const choice = await vscode.window.showWarningMessage(
+            '当前没有已进入存档的游戏连接，无法在游戏内重载存档。',
+            '重启游戏',
+            '取消'
+        );
+        if (choice !== '重启游戏') {
+            return;
+        }
+    }
+
+    await restartGameProcess();
+}
+
+/**
+ * 兜底方案：结束 Minecraft / mcdk 进程后按当前配置重新启动。
+ */
+async function restartGameProcess(): Promise<void> {
     const terminal = mcdkTerminal;
     mcdkTerminal = undefined;
     terminal?.dispose();
