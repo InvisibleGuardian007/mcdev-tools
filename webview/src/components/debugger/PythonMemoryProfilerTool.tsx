@@ -73,6 +73,11 @@ export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfi
           completed: captured,
         });
         setPending(false);
+        const savedPath = captured.report?.markdownPath;
+        if (savedPath) {
+          setError(undefined);
+          setNotice(`${t.pythonMemoryAutoSaved} ${shortenPath(savedPath)}`);
+        }
       } else if (message.type === 'pythonMemoryProfilerError') {
         setPending(false);
         setError(typeof message.message === 'string' ? message.message : t.hostBridgeRequestFailed);
@@ -526,6 +531,16 @@ function shortFile(file: string): string {
 
 function formatLocation(file: string, line: number): string {
   return line > 0 ? `${file}:${line}` : file;
+}
+
+/** 报告绝对路径太长，提示里只显示 .mcdev 之后的部分 */
+function shortenPath(full: string): string {
+  const index = full.lastIndexOf('.mcdev');
+  if (index >= 0) {
+    return full.slice(index).replace(/\\/g, '/');
+  }
+  const slash = Math.max(full.lastIndexOf('/'), full.lastIndexOf('\\'));
+  return slash >= 0 ? full.slice(slash + 1) : full;
 }
 
 function createRequestId(): string {

@@ -102,6 +102,13 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
           },
         }));
         setPending(false);
+        const savedPath = captured.report?.markdownPath;
+        if (captured.historyError) {
+          setError(`${t.pythonProfilerHistorySaveFailed}: ${captured.historyError}`);
+        } else if (savedPath) {
+          setError(undefined);
+          setNotice(`${t.pythonProfilerAutoSaved} ${shortenPath(savedPath)}`);
+        }
       } else if (message.type === 'pythonProfilerError') {
         setPending(false);
         setError(typeof message.message === 'string' ? message.message : t.hostBridgeRequestFailed);
@@ -235,9 +242,9 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
     });
   };
 
-  // 打开历史面板、切换会话或产生新采集时刷新列表
+  // 切换会话、换目标、展开面板、产生新采集时都刷新列表：不必先展开也知道存了几份
   useEffect(() => {
-    if (!showHistory || !session) {
+    if (!session) {
       return;
     }
     requestHistory();
@@ -989,6 +996,16 @@ function historyLabel(entry: PythonProfilerHistoryEntry | undefined): string {
 function historyTopFunction(entry: PythonProfilerHistoryEntry): string {
   const top = entry.top;
   return top ? `${top.module}:${top.line} ${top.name}` : '';
+}
+
+/** 报告绝对路径太长，提示里只显示 .mcdev 之后的部分 */
+function shortenPath(full: string): string {
+  const index = full.lastIndexOf('.mcdev');
+  if (index >= 0) {
+    return full.slice(index).replace(/\\/g, '/');
+  }
+  const slash = Math.max(full.lastIndexOf('/'), full.lastIndexOf('\\'));
+  return slash >= 0 ? full.slice(slash + 1) : full;
 }
 
 function isTarget(value: unknown): value is PythonProfilerTarget {

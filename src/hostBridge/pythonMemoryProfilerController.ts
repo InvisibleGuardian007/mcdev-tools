@@ -223,6 +223,13 @@ export class PythonMemoryProfilerController implements vscode.Disposable {
                 result
             };
             this.completed.set(key, completed);
+            // 采集一结束就把报告写进工作区，不必再手动点「保存报告」
+            await this.saveReport(key, runtime.sessionId).catch(error => {
+                const owner = this.completed.get(key);
+                if (owner) {
+                    owner.reportError = error instanceof Error ? error.message : String(error);
+                }
+            });
             await webview.postMessage({
                 type: 'pythonMemoryProfilerResult',
                 sessionId: runtime.sessionId,

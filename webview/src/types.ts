@@ -186,6 +186,8 @@ export interface PythonProfilerCompletedState {
   reportError?: string;
   /** 采集历史 id（A/B 对比用） */
   historyId?: string;
+  /** 历史落盘失败的原因 */
+  historyError?: string;
 }
 
 export interface PythonProfilerTargetState {

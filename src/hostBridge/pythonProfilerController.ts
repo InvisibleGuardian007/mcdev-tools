@@ -52,6 +52,8 @@ interface PythonProfilerCompletedState {
     reportError?: string;
     /** 采集历史里的 id，用于 A/B 对比 */
     historyId?: string;
+    /** 历史落盘失败的原因（不阻断采集，但要能看见） */
+    historyError?: string;
 }
 
 const MAX_TIMER_DELAY_MS = 2_000_000_000;
@@ -324,7 +326,13 @@ export class PythonProfilerController implements vscode.Disposable {
             };
             this.completed.set(key, state);
             // 每次采集都落一份历史摘要，否则「采集历史 / 对比」无从下手
-            await this.recordHistory(runtime, state, capturedAt).catch(() => undefined);
+            await this.recordHistory(runtime, state, capturedAt).catch(error => {
+                state.historyError = error instanceof Error ? error.message : String(error);
+            });
+            // 采集一结束就把报告（md + svg）写进工作区，不必再手动点「保存报告」
+            await this.saveReport(key, runtime.sessionId).catch(error => {
+                state.reportError = error instanceof Error ? error.message : String(error);
+            });
             await webview.postMessage({
                 type: 'pythonProfilerResult',
                 sessionId: runtime.sessionId,

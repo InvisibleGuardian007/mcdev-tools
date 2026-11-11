@@ -276,6 +276,9 @@ export interface I18nText {
   pythonProfilerScopeAll: string;
   pythonProfilerScopeHint: string;
   pythonProfilerScopeEmpty: string;
+  pythonProfilerAutoSaved: string;
+  pythonProfilerHistorySaveFailed: string;
+  pythonMemoryAutoSaved: string;
   pythonProfilerHistory: string;
   pythonProfilerHistoryHint: string;
   pythonProfilerHistoryRefresh: string;
@@ -700,6 +703,9 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerScopeHint:
         'Mod functions are shown by default. Click to also list engine / vanilla functions captured in the same profile.',
     pythonProfilerScopeEmpty: 'This profile did not capture engine / vanilla functions.',
+    pythonProfilerAutoSaved: 'Report saved automatically to',
+    pythonProfilerHistorySaveFailed: 'Saving the capture history failed',
+    pythonMemoryAutoSaved: 'Memory report saved automatically to',
     pythonProfilerHistory: 'Captures',
     pythonProfilerHistoryHint: 'Pick two captures as A/B; a compact diff is generated and copied for your agent.',
     pythonProfilerHistoryRefresh: 'Refresh captures',
@@ -1122,6 +1128,9 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerScopeAll: '含原版函数',
     pythonProfilerScopeHint: '默认只看 mod 自己的函数，点击可同时列出本次采集到的引擎 / 原版函数。',
     pythonProfilerScopeEmpty: '本次采集没有捕获到引擎 / 原版函数。',
+    pythonProfilerAutoSaved: '报告已自动保存到',
+    pythonProfilerHistorySaveFailed: '采集历史保存失败',
+    pythonMemoryAutoSaved: '内存报告已自动保存到',
     pythonProfilerHistory: '采集历史',
     pythonProfilerHistoryHint: '选两次采集当 A/B，生成极简对比摘要并自动复制，直接粘给 Agent。',
     pythonProfilerHistoryRefresh: '刷新采集历史',
