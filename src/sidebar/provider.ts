@@ -18,6 +18,8 @@ import {
     normalizePackId,
     readIncludedModDirs,
 } from '../hostBridge/worldMods';
+import { buildAgentBrief, buildMcpUrl, probeMcpServer } from '../hostBridge/mcpAgent';
+import { copyToClipboard } from '../utils/clipboard';
 
 // 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
 
@@ -145,6 +147,14 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleSyncWorldMods(webview, msg.folder);
             } else if (msg?.type === 'reloadWorld') {
                 await this.handleReloadWorld(webview, msg.content);
+            } else if (msg?.type === 'probeMcp') {
+                await this.handleProbeMcp(webview, msg.host, msg.port);
+            } else if (msg?.type === 'copyText') {
+                await this.handleCopyText(webview, msg.text);
+            } else if (msg?.type === 'writeVscodeMcp') {
+                await this.handleWriteVscodeMcp(webview, msg.url);
+            } else if (msg?.type === 'copyAgentBrief') {
+                await this.handleCopyAgentBrief(webview, msg.url, msg.tools);
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -260,6 +270,85 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
             }
         }
         await vscode.commands.executeCommand('mcdev-tools.reloadWorld');
+    }
+
+    /**
+     * 处理 probeMcp 消息：探活 mcdk 内置的 MCP 服务器并把工具清单回给界面
+     */
+    private async handleProbeMcp(webview: vscode.Webview, host?: string, port?: number): Promise<void> {
+        const url = buildMcpUrl({ host, port });
+        const result = await probeMcpServer(url, 4000);
+        try {
+            await webview.postMessage({ type: 'mcpProbeResult', ...result });
+        } catch (e) {
+            console.error('回传 MCP 探活结果失败', e);
+        }
+    }
+
+    /**
+     * 处理 copyText 消息：界面只负责发文本，剪贴板由扩展宿主写
+     */
+    private async handleCopyText(webview: vscode.Webview, text?: string): Promise<void> {
+        const ok = typeof text === 'string' && text.length > 0 ? await copyToClipboard(text) : false;
+        try {
+            await webview.postMessage({ type: 'copied', ok });
+        } catch (e) {
+            console.error('回传复制结果失败', e);
+        }
+    }
+
+    /**
+     * 处理 copyAgentBrief 消息：把「我已接入这台调试实例」的说明压成一段交给 Agent
+     */
+    private async handleCopyAgentBrief(webview: vscode.Webview, url?: string, tools?: unknown): Promise<void> {
+        const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
+        const list = Array.isArray(tools)
+            ? tools.filter((name): name is string => typeof name === 'string' && !!name).map(name => ({ name }))
+            : [];
+        const language = vscode.env.language && vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        const ok = await copyToClipboard(buildAgentBrief(endpoint, list, language));
+        try {
+            await webview.postMessage({ type: 'copied', ok });
+        } catch (e) {
+            console.error('回传复制结果失败', e);
+        }
+    }
+
+    /**
+     * 处理 writeVscodeMcp 消息：把 mcdk 的 MCP 端点写进工作区 .vscode/mcp.json（保留其他 server）
+     */
+    private async handleWriteVscodeMcp(webview: vscode.Webview, url?: string): Promise<void> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            await webview.postMessage({ type: 'mcpConfigWritten', ok: false, error: 'noWorkspace' });
+            return;
+        }
+        const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
+        const directory = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode');
+        const file = vscode.Uri.joinPath(directory, 'mcp.json');
+        let config: any = {};
+        if (fs.existsSync(file.fsPath)) {
+            try {
+                config = JSON.parse(fs.readFileSync(file.fsPath, 'utf8'));
+            } catch (e) {
+                await webview.postMessage({ type: 'mcpConfigWritten', ok: false, error: 'invalidJson' });
+                return;
+            }
+        }
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            config = {};
+        }
+        if (!config.servers || typeof config.servers !== 'object' || Array.isArray(config.servers)) {
+            config.servers = {};
+        }
+        config.servers.minecraft = { type: 'http', url: endpoint };
+        try {
+            await vscode.workspace.fs.createDirectory(directory);
+            await vscode.workspace.fs.writeFile(file, Buffer.from(`${JSON.stringify(config, null, 2)}\n`, 'utf8'));
+            await webview.postMessage({ type: 'mcpConfigWritten', ok: true, path: file.fsPath });
+        } catch (e) {
+            await webview.postMessage({ type: 'mcpConfigWritten', ok: false, error: String(e) });
+        }
     }
 
     /**

@@ -133,6 +133,23 @@ export interface I18nText {
   mcpServerEnabled: string;
   mcpServerIp: string;
   mcpServerPort: string;
+  mcpAgentProbe: string;
+  mcpAgentProbing: string;
+  mcpAgentStatusIdle: string;
+  mcpAgentStatusDisabled: string;
+  mcpAgentStatusOk: string;
+  mcpAgentStatusFail: string;
+  mcpAgentCopyBrief: string;
+  mcpAgentCopyClaude: string;
+  mcpAgentCopyJson: string;
+  mcpAgentWriteJson: string;
+  mcpAgentCopied: string;
+  mcpAgentCopyFailed: string;
+  mcpAgentWritten: string;
+  mcpAgentWriteFailed: string;
+  mcpAgentInvalidJson: string;
+  mcpAgentNoWorkspace: string;
+  mcpAgentRestartHint: string;
   getMcpBridgeTool: string;
   getMcpAssistant: string;
   mcpAssistantBadge: string;
@@ -558,6 +575,23 @@ export const i18n: Record<string, I18nText> = {
     mcpServerEnabled: 'Enable MCP Server',
     mcpServerIp: 'Server IP',
     mcpServerPort: 'Server Port',
+    mcpAgentProbe: 'Test connection',
+    mcpAgentProbing: 'Testing…',
+    mcpAgentStatusIdle: 'Not tested yet',
+    mcpAgentStatusDisabled: 'MCP server is disabled in the config, agents cannot connect.',
+    mcpAgentStatusOk: 'Connected · {count} tools available',
+    mcpAgentStatusFail: 'Cannot reach it: {error}',
+    mcpAgentCopyBrief: 'Copy agent brief',
+    mcpAgentCopyClaude: 'Copy Claude Code command',
+    mcpAgentCopyJson: 'Copy mcp.json',
+    mcpAgentWriteJson: 'Write .vscode/mcp.json',
+    mcpAgentCopied: 'Copied to clipboard',
+    mcpAgentCopyFailed: 'Copy failed',
+    mcpAgentWritten: 'Written to {path}',
+    mcpAgentWriteFailed: 'Writing mcp.json failed: {error}',
+    mcpAgentInvalidJson: 'the existing mcp.json is not valid JSON',
+    mcpAgentNoWorkspace: 'no workspace folder is open',
+    mcpAgentRestartHint: 'Changes take effect the next time the game (mcdk) starts.',
     getMcpBridgeTool: 'Get Bridge',
     getMcpAssistant: 'MC Assistant MCP',
     mcpAssistantBadge: 'RAG',
@@ -984,6 +1018,23 @@ export const i18n: Record<string, I18nText> = {
     mcpServerEnabled: '启用 MCP 服务器',
     mcpServerIp: '服务器 IP',
     mcpServerPort: '服务器端口',
+    mcpAgentProbe: '测试连接',
+    mcpAgentProbing: '正在测试…',
+    mcpAgentStatusIdle: '尚未测试',
+    mcpAgentStatusDisabled: '配置里未启用 MCP 服务器，Agent 无法连接。',
+    mcpAgentStatusOk: '已连接 · 可用工具 {count} 个',
+    mcpAgentStatusFail: '连不上：{error}',
+    mcpAgentCopyBrief: '复制 Agent 说明',
+    mcpAgentCopyClaude: '复制 Claude Code 命令',
+    mcpAgentCopyJson: '复制 mcp.json',
+    mcpAgentWriteJson: '写入 .vscode/mcp.json',
+    mcpAgentCopied: '已复制到剪贴板',
+    mcpAgentCopyFailed: '复制失败',
+    mcpAgentWritten: '已写入 {path}',
+    mcpAgentWriteFailed: '写入 mcp.json 失败：{error}',
+    mcpAgentInvalidJson: '已有的 mcp.json 不是合法 JSON',
+    mcpAgentNoWorkspace: '没有打开工作区',
+    mcpAgentRestartHint: '改动需要下次启动游戏（mcdk）时才生效。',
     getMcpBridgeTool: '获取跳板',
     getMcpAssistant: 'MC 助理 MCP',
     mcpAssistantBadge: 'RAG',
