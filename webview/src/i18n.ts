@@ -140,7 +140,12 @@ export interface I18nText {
   mcpAgentStatusOk: string;
   mcpAgentStatusFail: string;
   mcpAgentCopyBrief: string;
-  mcpAgentCopyClaude: string;
+  mcpAgentInstallDsh: string;
+  mcpAgentInstallDshHint: string;
+  mcpAgentDshInstalled: string;
+  mcpAgentDshUnchanged: string;
+  mcpAgentDshFailed: string;
+  mcpAgentDshMissing: string;
   mcpAgentCopyJson: string;
   mcpAgentWriteJson: string;
   mcpAgentCopied: string;
@@ -584,7 +589,12 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentStatusOk: 'Connected · {count} tools available',
     mcpAgentStatusFail: 'Cannot reach it: {error}',
     mcpAgentCopyBrief: 'Copy agent brief',
-    mcpAgentCopyClaude: 'Copy Claude Code command',
+    mcpAgentInstallDsh: 'Connect DeepSeek Harness',
+    mcpAgentInstallDshHint: 'Appends the minecraft MCP server to every DSH profile under ~/.dsh/profiles; restart DSH to load it.',
+    mcpAgentDshInstalled: 'Added to {count} DSH profile(s). Restart DSH to load it.',
+    mcpAgentDshUnchanged: '{count} DSH profile(s) already up to date.',
+    mcpAgentDshFailed: 'Writing the DSH config failed: {error}',
+    mcpAgentDshMissing: 'no DSH profile was found under ~/.dsh/profiles',
     mcpAgentCopyJson: 'Copy mcp.json',
     mcpAgentWriteJson: 'Write .vscode/mcp.json',
     mcpAgentCopied: 'Copied to clipboard',
@@ -1029,7 +1039,12 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentStatusOk: '已连接 · 可用工具 {count} 个',
     mcpAgentStatusFail: '连不上：{error}',
     mcpAgentCopyBrief: '复制 Agent 说明',
-    mcpAgentCopyClaude: '复制 Claude Code 命令',
+    mcpAgentInstallDsh: '接入 DeepSeek Harness',
+    mcpAgentInstallDshHint: '把 minecraft 这个 MCP 服务器追加到 ~/.dsh/profiles 下每个 profile；重启 DSH 后生效。',
+    mcpAgentDshInstalled: '已写入 {count} 个 DSH profile，重启 DSH 后生效。',
+    mcpAgentDshUnchanged: '{count} 个 DSH profile 已经是最新，无需改动。',
+    mcpAgentDshFailed: '写入 DSH 配置失败：{error}',
+    mcpAgentDshMissing: '在 ~/.dsh/profiles 下没找到 DSH 配置',
     mcpAgentCopyJson: '复制 mcp.json',
     mcpAgentWriteJson: '写入 .vscode/mcp.json',
     mcpAgentCopied: '已复制到剪贴板',

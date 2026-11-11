@@ -94,6 +94,19 @@ export const McpServerConfig: React.FC<Props> = ({
         }
       } else if (msg?.type === 'copied') {
         setNotice(msg.ok ? t.mcpAgentCopied : t.mcpAgentCopyFailed);
+      } else if (msg?.type === 'dshInstalled') {
+        if (msg.ok) {
+          const count = Array.isArray(msg.files) ? msg.files.length : 0;
+          const changed = Array.isArray(msg.changed) ? msg.changed.length : 0;
+          setNotice(
+            changed > 0
+              ? t.mcpAgentDshInstalled.replace('{count}', String(count))
+              : t.mcpAgentDshUnchanged.replace('{count}', String(count))
+          );
+        } else {
+          const reason = msg.error === 'no dsh profiles' ? t.mcpAgentDshMissing : String(msg.error);
+          setNotice(t.mcpAgentDshFailed.replace('{error}', reason));
+        }
       }
     };
     window.addEventListener('message', handleMessage);
@@ -130,7 +143,11 @@ export const McpServerConfig: React.FC<Props> = ({
     vscode.postMessage({ type: 'writeVscodeMcp', url: endpoint });
   };
 
-  const claudeCommand = `claude mcp add --transport http ${SERVER_NAME} ${endpoint}`;
+  const installDsh = () => {
+    setNotice('');
+    vscode.postMessage({ type: 'installDshMcp', url: endpoint });
+  };
+
   const mcpJson = `${JSON.stringify({ servers: { [SERVER_NAME]: { type: 'http', url: endpoint } } }, null, 2)}\n`;
 
   const statusText = !enabled
@@ -235,9 +252,9 @@ export const McpServerConfig: React.FC<Props> = ({
             <span className="codicon codicon-copy"></span>
             {t.mcpAgentCopyBrief}
           </button>
-          <button type="button" className="mcp-agent-btn" onClick={() => copyText(claudeCommand)}>
-            <span className="codicon codicon-terminal"></span>
-            {t.mcpAgentCopyClaude}
+          <button type="button" className="mcp-agent-btn" onClick={installDsh} title={t.mcpAgentInstallDshHint}>
+            <span className="codicon codicon-plug"></span>
+            {t.mcpAgentInstallDsh}
           </button>
           <button type="button" className="mcp-agent-btn" onClick={() => copyText(mcpJson)}>
             <span className="codicon codicon-json"></span>

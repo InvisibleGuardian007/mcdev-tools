@@ -20,6 +20,7 @@ import {
 } from '../hostBridge/worldMods';
 import { buildAgentBrief, buildMcpUrl, probeMcpServer } from '../hostBridge/mcpAgent';
 import { clearProcessDetectionCache, isModpcRunning } from '../debugger/ptvsd/processDetector';
+import { buildDshPatchEntry, installDshMcpEntry } from '../hostBridge/dshIntegration';
 import { copyToClipboard } from '../utils/clipboard';
 
 // 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
@@ -156,6 +157,10 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleWriteVscodeMcp(webview, msg.url);
             } else if (msg?.type === 'copyAgentBrief') {
                 await this.handleCopyAgentBrief(webview, msg.url, msg.tools);
+            } else if (msg?.type === 'installDshMcp') {
+                await this.handleInstallDshMcp(webview, msg.url);
+            } else if (msg?.type === 'copyDshSnippet') {
+                await this.handleCopyDshSnippet(webview, msg.url);
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -313,6 +318,32 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
             : [];
         const language = vscode.env.language && vscode.env.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
         const ok = await copyToClipboard(buildAgentBrief(endpoint, list, language));
+        try {
+            await webview.postMessage({ type: 'copied', ok });
+        } catch (e) {
+            console.error('回传复制结果失败', e);
+        }
+    }
+
+    /**
+     * 处理 installDshMcp 消息：把 mcdk 端点写进 DSH 各 profile 的 cordis.patch.yml
+     */
+    private async handleInstallDshMcp(webview: vscode.Webview, url?: string): Promise<void> {
+        const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
+        const result = installDshMcpEntry({ url: endpoint });
+        try {
+            await webview.postMessage({ type: 'dshInstalled', ...result });
+        } catch (e) {
+            console.error('回传 DSH 接入结果失败', e);
+        }
+    }
+
+    /**
+     * 处理 copyDshSnippet 消息：只复制 YAML 片段，方便自己贴
+     */
+    private async handleCopyDshSnippet(webview: vscode.Webview, url?: string): Promise<void> {
+        const endpoint = typeof url === 'string' && url.trim() ? url.trim() : buildMcpUrl();
+        const ok = await copyToClipboard(buildDshPatchEntry(endpoint));
         try {
             await webview.postMessage({ type: 'copied', ok });
         } catch (e) {
