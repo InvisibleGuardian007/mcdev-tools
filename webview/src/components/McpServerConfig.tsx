@@ -32,6 +32,8 @@ interface ProbeState {
   status: ProbeStatus;
   tools: string[];
   error?: string;
+  code?: string;
+  gameRunning?: boolean;
 }
 
 function shortenPath(full: string): string {
@@ -76,7 +78,13 @@ export const McpServerConfig: React.FC<Props> = ({
         const tools = Array.isArray(msg.tools)
           ? msg.tools.map((item: any) => (item && typeof item.name === 'string' ? item.name : '')).filter((name: string) => !!name)
           : [];
-        setProbe({ status: msg.ok ? 'ok' : 'fail', tools, error: typeof msg.error === 'string' ? msg.error : undefined });
+        setProbe({
+          status: msg.ok ? 'ok' : 'fail',
+          tools,
+          error: typeof msg.error === 'string' && msg.error ? msg.error : undefined,
+          code: typeof msg.errorCode === 'string' ? msg.errorCode : undefined,
+          gameRunning: typeof msg.gameRunning === 'boolean' ? msg.gameRunning : undefined,
+        });
       } else if (msg?.type === 'mcpConfigWritten') {
         if (msg.ok) {
           setNotice(t.mcpAgentWritten.replace('{path}', shortenPath(String(msg.path || ''))));
@@ -132,7 +140,9 @@ export const McpServerConfig: React.FC<Props> = ({
       : probe.status === 'ok'
         ? t.mcpAgentStatusOk.replace('{count}', String(probe.tools.length))
         : probe.status === 'fail'
-          ? t.mcpAgentStatusFail.replace('{error}', probe.error || '?')
+          ? probe.code === 'ECONNREFUSED'
+            ? (probe.gameRunning ? t.mcpAgentRefusedGameRunning : t.mcpAgentRefusedGameStopped)
+            : t.mcpAgentStatusFail.replace('{error}', probe.error || probe.code || '?')
           : t.mcpAgentStatusIdle;
 
   return (

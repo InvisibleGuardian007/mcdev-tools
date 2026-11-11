@@ -19,6 +19,7 @@ import {
     readIncludedModDirs,
 } from '../hostBridge/worldMods';
 import { buildAgentBrief, buildMcpUrl, probeMcpServer } from '../hostBridge/mcpAgent';
+import { clearProcessDetectionCache, isModpcRunning } from '../debugger/ptvsd/processDetector';
 import { copyToClipboard } from '../utils/clipboard';
 
 // 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
@@ -277,9 +278,14 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
      */
     private async handleProbeMcp(webview: vscode.Webview, host?: string, port?: number): Promise<void> {
         const url = buildMcpUrl({ host, port });
-        const result = await probeMcpServer(url, 4000);
+        // processDetector 带缓存，用户刚启动/关掉游戏时可能过期，这里强制重新检测一次
+        clearProcessDetectionCache();
+        const [result, gameRunning] = await Promise.all([
+            probeMcpServer(url, 4000),
+            isModpcRunning().catch(() => false),
+        ]);
         try {
-            await webview.postMessage({ type: 'mcpProbeResult', ...result });
+            await webview.postMessage({ type: 'mcpProbeResult', ...result, gameRunning });
         } catch (e) {
             console.error('回传 MCP 探活结果失败', e);
         }

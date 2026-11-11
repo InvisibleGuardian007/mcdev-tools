@@ -150,6 +150,8 @@ export interface I18nText {
   mcpAgentInvalidJson: string;
   mcpAgentNoWorkspace: string;
   mcpAgentRestartHint: string;
+  mcpAgentRefusedGameStopped: string;
+  mcpAgentRefusedGameRunning: string;
   getMcpBridgeTool: string;
   getMcpAssistant: string;
   mcpAssistantBadge: string;
@@ -592,6 +594,8 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentInvalidJson: 'the existing mcp.json is not valid JSON',
     mcpAgentNoWorkspace: 'no workspace folder is open',
     mcpAgentRestartHint: 'Changes take effect the next time the game (mcdk) starts.',
+    mcpAgentRefusedGameStopped: 'Nothing is listening on that port: the game (mcdk) is not running. Start the game first, then test again.',
+    mcpAgentRefusedGameRunning: 'Nothing is listening on that port even though the game is running: MCP was not started. Enable it in this card, then restart the game (mcdk only reads this setting at launch).',
     getMcpBridgeTool: 'Get Bridge',
     getMcpAssistant: 'MC Assistant MCP',
     mcpAssistantBadge: 'RAG',
@@ -1035,6 +1039,8 @@ export const i18n: Record<string, I18nText> = {
     mcpAgentInvalidJson: '已有的 mcp.json 不是合法 JSON',
     mcpAgentNoWorkspace: '没有打开工作区',
     mcpAgentRestartHint: '改动需要下次启动游戏（mcdk）时才生效。',
+    mcpAgentRefusedGameStopped: '该端口没有程序监听：游戏（mcdk）没在运行。先启动游戏，再点测试连接。',
+    mcpAgentRefusedGameRunning: '游戏在运行，但这个端口没有监听：MCP 没起来。先在本卡片勾选启用，再重启游戏（mcdk 只在启动时读取这个配置）。',
     getMcpBridgeTool: '获取跳板',
     getMcpAssistant: 'MC 助理 MCP',
     mcpAssistantBadge: 'RAG',

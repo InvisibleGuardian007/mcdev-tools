@@ -4,6 +4,7 @@ import * as http from 'http';
 import type { AddressInfo } from 'net';
 import {
     buildAgentBrief,
+    describeError,
     buildClaudeCodeCommand,
     buildDshProfileSnippet,
     buildMcpUrl,
@@ -114,6 +115,30 @@ test('probeMcpServer reports a connection failure instead of throwing', async ()
     } finally {
         server.close();
     }
+});
+
+test('describeError falls back to the errno code when message is empty', () => {
+    // Node 在 localhost 同时解析 ::1 / 127.0.0.1 时会抛 AggregateError，message 是空串
+    const aggregate = Object.assign(new Error(''), { code: 'ECONNREFUSED', errors: [] });
+    assert.equal(describeError(aggregate), 'ECONNREFUSED');
+    const withNested = Object.assign(new Error(''), {
+        code: 'ECONNREFUSED',
+        errors: [new Error('connect ECONNREFUSED 127.0.0.1:19133')],
+    });
+    assert.equal(describeError(withNested), 'connect ECONNREFUSED 127.0.0.1:19133');
+    assert.equal(describeError(new Error('Timed out after 4000 ms')), 'Timed out after 4000 ms');
+    assert.equal(describeError(undefined), 'unknown error');
+});
+
+test('probeMcpServer reports the errno code for a closed port', async () => {
+    const server = http.createServer();
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
+    const port = (server.address() as AddressInfo).port;
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    const result = await probeMcpServer(`http://127.0.0.1:${port}/mcp`, 1500);
+    assert.equal(result.ok, false);
+    assert.equal(result.errorCode, 'ECONNREFUSED');
+    assert.ok((result.error || '').length > 0, 'error text must not be empty');
 });
 
 test('config snippets point at the same endpoint', () => {

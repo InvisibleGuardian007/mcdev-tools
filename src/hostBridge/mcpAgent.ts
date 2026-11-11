@@ -27,6 +27,8 @@ export interface McpProbeResult {
     serverInfo?: { name?: string; version?: string };
     tools: McpToolInfo[];
     error?: string;
+    /** 网络层 errno（ECONNREFUSED / ENOTFOUND / ETIMEDOUT…），界面按它给更具体的提示 */
+    errorCode?: string;
 }
 
 const DEFAULT_HOST = 'localhost';
@@ -152,6 +154,42 @@ function postJsonRpc(url: string, payload: unknown, sessionId: string | undefine
     });
 }
 
+/**
+ * 把任意 error 变成人能读的一行。
+ * 注意 Node 在 localhost 同时解析 ::1 与 127.0.0.1 时抛 AggregateError，message 是空字符串，
+ * 只有 code（ECONNREFUSED）和 errors[] 里有信息——直接用 message 会得到一片空白。
+ */
+export function describeError(error: unknown): string {
+    if (error === undefined || error === null) {
+        return 'unknown error';
+    }
+    const candidate = error as { message?: unknown; code?: unknown; errors?: unknown };
+    const message = typeof candidate.message === 'string' ? candidate.message.trim() : '';
+    if (message) {
+        return message;
+    }
+    if (Array.isArray(candidate.errors)) {
+        for (const inner of candidate.errors) {
+            const innerMessage = inner && typeof (inner as { message?: unknown }).message === 'string'
+                ? String((inner as { message?: string }).message).trim()
+                : '';
+            if (innerMessage) {
+                return innerMessage;
+            }
+        }
+    }
+    if (typeof candidate.code === 'string' && candidate.code) {
+        return candidate.code;
+    }
+    const text = String(error).trim();
+    return text && text !== '[object Object]' ? text : 'unknown error';
+}
+
+function readErrorCode(error: unknown): string | undefined {
+    const code = error && typeof (error as { code?: unknown }).code === 'string' ? String((error as { code?: string }).code) : '';
+    return code || undefined;
+}
+
 function readResult(json: any): any {
     if (!json || typeof json !== 'object') {
         return undefined;
@@ -190,7 +228,7 @@ export async function probeMcpServer(url: string, timeoutMs = 5000): Promise<Mcp
         try {
             initResult = readResult(init.json);
         } catch (error) {
-            throw new Error(`initialize failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`initialize failed: ${describeError(error)}`);
         }
         if (!initResult) {
             throw new Error(`initialize failed: HTTP ${init.status || 'no response'}`);
@@ -213,7 +251,7 @@ export async function probeMcpServer(url: string, timeoutMs = 5000): Promise<Mcp
         try {
             listResult = readResult(list.json);
         } catch (error) {
-            throw new Error(`tools/list failed: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`tools/list failed: ${describeError(error)}`);
         }
         const tools = Array.isArray(listResult?.tools) ? listResult.tools : [];
         result.tools = tools
@@ -224,7 +262,8 @@ export async function probeMcpServer(url: string, timeoutMs = 5000): Promise<Mcp
             }));
         result.ok = true;
     } catch (error) {
-        result.error = error instanceof Error ? error.message : String(error);
+        result.error = describeError(error);
+        result.errorCode = readErrorCode(error);
     }
     return result;
 }
