@@ -127,7 +127,7 @@ let autoOpenedDebuggerSessionId: string | undefined;
  * 按设置打开「游戏调试」面板：默认在编辑器区单开一个页签，也可以改成停靠到次级侧边栏。
  */
 function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
-    const surface = vscode.workspace.getConfiguration('mcdev-tools').get<string>('gameDebugger.surface', 'editor');
+    const surface = vscode.workspace.getConfiguration('mcdev-tools').get<string>('gameDebugger.surface', 'auxiliarybar');
     if (surface === 'editor') {
         gameDebuggerPanel?.show();
         return;

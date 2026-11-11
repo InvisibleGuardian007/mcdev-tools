@@ -149,6 +149,8 @@ export interface I18nText {
   hostBridgeResult: string;
   hostBridgeNoResult: string;
   hostBridgeRefresh: string;
+  workbenchOpenInEditor: string;
+  workbenchDockToSidebar: string;
   hostBridgeClear: string;
   hostBridgeRequestFailed: string;
   hostBridgeMethodUnavailable: string;
@@ -543,6 +545,8 @@ export const i18n: Record<string, I18nText> = {
     hostBridgeResult: 'Result',
     hostBridgeNoResult: 'No executions yet',
     hostBridgeRefresh: 'Refresh sessions',
+    workbenchOpenInEditor: 'Open in an editor tab',
+    workbenchDockToSidebar: 'Dock back to the sidebar',
     hostBridgeClear: 'Clear results',
     hostBridgeRequestFailed: 'Execution failed',
     hostBridgeMethodUnavailable: 'Code execution is unavailable',
@@ -937,6 +941,8 @@ export const i18n: Record<string, I18nText> = {
     hostBridgeResult: '执行结果',
     hostBridgeNoResult: '暂无执行记录',
     hostBridgeRefresh: '刷新会话',
+    workbenchOpenInEditor: '在编辑器标签页打开',
+    workbenchDockToSidebar: '停靠回侧边栏',
     hostBridgeClear: '清空结果',
     hostBridgeRequestFailed: '执行失败',
     hostBridgeMethodUnavailable: '当前版本不支持代码执行',

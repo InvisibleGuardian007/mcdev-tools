@@ -39,6 +39,7 @@ export function WorkbenchApp({ tools, title, icon = 'codicon-debug-console', act
   const language = document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
   const t = i18n[language] || i18n.en;
   const [snapshot, setSnapshot] = useState<HostBridgeSnapshot>(EMPTY_SNAPSHOT);
+  const [dock, setDock] = useState<'view' | 'panel' | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [activeToolId, setActiveToolId] = useState(tools[0]?.id ?? '');
   const resolvedTitle = typeof title === 'function' ? title(t) : title;
@@ -47,6 +48,9 @@ export function WorkbenchApp({ tools, title, icon = 'codicon-debug-console', act
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'hostBridgeState' && event.data.snapshot) {
         setSnapshot(event.data.snapshot as HostBridgeSnapshot);
+      }
+      if (event.data?.type === 'debuggerSurface' && (event.data.dock === 'view' || event.data.dock === 'panel')) {
+        setDock(event.data.dock as 'view' | 'panel');
       }
     };
     window.addEventListener('message', handleMessage);
@@ -91,6 +95,17 @@ export function WorkbenchApp({ tools, title, icon = 'codicon-debug-console', act
             <span className="host-bridge-status-dot" />
             <span>{status.label}</span>
           </div>
+          {dock && (
+            <button
+              type="button"
+              className="btn-icon host-bridge-icon-button debug-workbench-dock-button"
+              onClick={() => vscode.postMessage({ type: 'toggleDebuggerSurface' })}
+              title={dock === 'view' ? t.workbenchOpenInEditor : t.workbenchDockToSidebar}
+              aria-label={dock === 'view' ? t.workbenchOpenInEditor : t.workbenchDockToSidebar}
+            >
+              <span className={`codicon ${dock === 'view' ? 'codicon-link-external' : 'codicon-layout-sidebar-right'}`} />
+            </button>
+          )}
           <button
             type="button"
             className="btn-icon host-bridge-icon-button"

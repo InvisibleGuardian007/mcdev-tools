@@ -194,8 +194,12 @@ export class GameDebuggerPanel implements vscode.Disposable {
     }
 
     private attach(surface: DebuggerSurface): void {
-        this.placeholderSubscription?.dispose();
-        this.placeholderSubscription = undefined;
+        // 占位页属于停靠视图自己，只有视图把界面抢回去时才需要停掉它的消息监听；
+        // 切到编辑器页签时保留，否则「在侧边栏显示」按钮点了没反应。
+        if (surface.kind === 'view') {
+            this.placeholderSubscription?.dispose();
+            this.placeholderSubscription = undefined;
+        }
         this.surface = surface;
         this.pythonProfilerController = new PythonProfilerController(this.hostBridgeManager);
         surface.webview.html = this.getHtml(surface.webview);
@@ -277,6 +281,10 @@ export class GameDebuggerPanel implements vscode.Disposable {
     private async handleMessage(webview: vscode.Webview, message: any): Promise<void> {
         if (message?.type === 'ready') {
             await this.postState(webview);
+            return;
+        }
+        if (message?.type === 'toggleDebuggerSurface') {
+            await this.toggleSurface();
             return;
         }
         if (message?.type === 'hostBridgeRefresh') {
@@ -877,6 +885,29 @@ export class GameDebuggerPanel implements vscode.Disposable {
             type: 'hostBridgeState',
             snapshot: this.hostBridgeManager.getSnapshot()
         });
+        await this.postSurface(webview);
+    }
+
+    /** 告诉界面当前停在侧边栏还是编辑器页签，好决定按钮文字。 */
+    private async postSurface(webview: vscode.Webview): Promise<void> {
+        await webview.postMessage({
+            type: 'debuggerSurface',
+            dock: this.surface?.kind === 'panel' ? 'panel' : 'view'
+        });
+    }
+
+    /** 在「侧边栏停靠视图」和「编辑器页签」之间切换。 */
+    public async toggleSurface(): Promise<void> {
+        if (this.surface?.kind === 'panel') {
+            const view = this.lastView;
+            await this.releaseSurface();
+            if (view) {
+                this.resolveWebviewView(view);
+                void vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux');
+            }
+            return;
+        }
+        this.show();
     }
 
     private getHtml(webview: vscode.Webview): string {
