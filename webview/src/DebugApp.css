@@ -716,12 +716,10 @@ body[data-view="studio"] #root {
 }
 
 .python-profiler-hint-tip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: -10px;
-  z-index: 40;
+  /* 挂到 body 上的固定定位气泡：不参与父级 overflow 裁剪，位置由 JS 按视口收边 */
+  position: fixed;
+  z-index: 9999;
   width: max-content;
-  max-width: min(320px, 70vw);
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid var(--vscode-editorHoverWidget-border, rgba(128, 128, 128, 0.35));
@@ -735,18 +733,7 @@ body[data-view="studio"] #root {
   white-space: normal;
   word-break: break-word;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-2px);
-  transition: opacity 120ms ease, transform 120ms ease;
   pointer-events: none;
-}
-
-.python-profiler-hint:hover .python-profiler-hint-tip,
-.python-profiler-hint:focus-visible .python-profiler-hint-tip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
 }
 
 .debug-segmented {

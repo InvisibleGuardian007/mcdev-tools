@@ -1,4 +1,5 @@
 import { CSSProperties, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { I18nText } from '../../i18n';
 import {
   HostBridgeSessionSummary,
@@ -605,20 +606,55 @@ const PythonProfilerResults = memo(function PythonProfilerResults({
 });
 
 function ControlGroup({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [tipStyle, setTipStyle] = useState<CSSProperties>();
+  // 气泡挂到 body 上做固定定位，避免被工具条的 overflow 裁掉；上下按视口剩余空间自动翻转
+  const showTip = () => {
+    if (!hint) {
+      return;
+    }
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    const maxWidth = Math.min(340, Math.max(180, window.innerWidth - 24));
+    const left = Math.min(Math.max(8, rect.left - 10), Math.max(8, window.innerWidth - maxWidth - 8));
+    const assumedHeight = 120;
+    const placeAbove = rect.bottom + 8 + assumedHeight > window.innerHeight - 8 && rect.top > assumedHeight;
+    setTipStyle(placeAbove
+      ? { left, top: Math.max(8, rect.top - 8), maxWidth, transform: 'translateY(-100%)' }
+      : { left, top: rect.bottom + 8, maxWidth });
+  };
+  const hideTip = () => setTipStyle(undefined);
   return (
     <div className="python-profiler-control-group">
       <span>
         {label}
         {hint && (
-          <span className="python-profiler-hint" role="img" aria-label={hint} tabIndex={0}>
+          <span
+            ref={anchorRef}
+            className="python-profiler-hint"
+            role="img"
+            aria-label={hint}
+            tabIndex={0}
+            onMouseEnter={showTip}
+            onMouseLeave={hideTip}
+            onFocus={showTip}
+            onBlur={hideTip}
+          >
             <span className="codicon codicon-question" aria-hidden="true" />
-            <span className="python-profiler-hint-tip" role="tooltip">
-              {hint}
-            </span>
           </span>
         )}
       </span>
       {children}
+      {hint && tipStyle
+        ? createPortal(
+          <span className="python-profiler-hint-tip" role="tooltip" style={tipStyle}>
+            {hint}
+          </span>,
+          document.body
+        )
+        : null}
     </div>
   );
 }
