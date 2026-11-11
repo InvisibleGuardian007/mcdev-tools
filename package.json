@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.60",
+    "version": "0.1.61",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -262,6 +262,11 @@
                     "default": "",
                     "description": "可选：mcdk.exe 的路径（留空使用插件内置 bin/native/windows/x64/mcdk.exe 或相对于工作区路径）"
                 },
+                "mcdev-tools.hostBridge.port": {
+                    "type": "number",
+                    "default": 19190,
+                    "description": "Host Bridge 的固定监听端口（本机 127.0.0.1）。端口被占用时会自动顺延最多 10 个，仍失败才退回随机端口；端口与令牌都跨窗口重载保留，所以重载扩展后正在运行的游戏可以直接连回来，不必重开游戏。"
+                },
                 "mcdev-tools.gameDebugger.autoOpen": {
                     "type": "boolean",
                     "default": true,
@@ -362,7 +367,7 @@
                 {
                     "id": "mcdev-tools",
                     "title": "MC Dev Tools Config",
-                    "icon": "./images/icon.svg"
+                    "icon": "./images/perf.svg"
                 }
             ],
             "auxiliarybar": [
@@ -405,7 +410,7 @@
         "native:build": "cmake --build native/tracy-bridge/build/x64-msvc-release",
         "native:test": "ctest --test-dir native/tracy-bridge/build/x64-msvc-release --output-on-failure",
         "native:install": "cmake --install native/tracy-bridge/build/x64-msvc-release",
-        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/mcpAgent.test.js out/hostBridge/dshIntegration.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/hostBridge/worldMods.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js out/sidebar/worlds.test.js",
+        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/serverLifecycle.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/mcpAgent.test.js out/hostBridge/dshIntegration.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/hostBridge/worldMods.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js out/sidebar/worlds.test.js",
         "lint": "eslint src --ext ts"
     },
     "dependencies": {

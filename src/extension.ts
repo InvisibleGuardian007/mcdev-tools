@@ -23,6 +23,23 @@ let gameDebuggerPanel: GameDebuggerPanel | undefined;
 /** 最近一次由 runMcdk 打开的 mcdk 终端，重载存档时先用它结束 mcdk 进程 */
 let mcdkTerminal: vscode.Terminal | undefined;
 
+/**
+ * 把每个打开了调试的工作区的「固定端口 + 持久令牌」登记提前挂好，
+ * 这样重载窗口后旧游戏进程还能连回同一个端口、同一个令牌。
+ */
+async function warmHostBridgeRegistrations(manager: HostBridgeManager | undefined): Promise<void> {
+    if (!manager) {
+        return;
+    }
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        try {
+            await manager.warmRegistration(folder.uri.fsPath);
+        } catch (error) {
+            console.warn('[HostBridge] 预先登记固定端口失败', error);
+        }
+    }
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log('Minecraft ModPC Debug 插件已激活');
     extensionContext = context;
@@ -52,6 +69,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(gameDebuggerView);
     registerGameDebuggerAutoOpen(context);
     registerPerfMonitorAutoOpen(context);
+    // 宿主一启动就把「固定端口 + 持久令牌」的登记挂好：
+    // 窗口重载后，仍在运行的游戏可以直接连回来，不必重开游戏。
+    void warmHostBridgeRegistrations(hostBridgeManager);
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('mcdev-tools.hostBridge.port') || event.affectsConfiguration('mcdev-tools.enable')) {
+            void warmHostBridgeRegistrations(hostBridgeManager);
+        }
+    }));
 
     // 初始化 ptvsd 持久化存储
     ptvsd.initStorage(context);

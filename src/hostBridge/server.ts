@@ -28,6 +28,8 @@ import {
 } from './types';
 
 const HANDSHAKE_TIMEOUT_MS = 3_000;
+// 固定端口优先：扩展宿主重载后游戏仍能连回同一个端口。被占用时顺延这么多位，最后再退回随机端口。
+const PORT_FALLBACK_ATTEMPTS = 10;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_WRITE_QUEUE_BYTES = HOST_BRIDGE_MAX_FRAME_BYTES * 2;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -167,19 +169,31 @@ export class HostBridgeServer {
         }
     }
 
-    public registerLaunch(workspacePath: string): PreparedHostBridgeLaunch {
+    /**
+     * 登记一次启动：返回要交给 mcdk / 游戏的环境变量。
+     * 传入稳定令牌时，若同一工作区已有该令牌的登记就复用（端口与令牌都不变，重载扩展后旧游戏可以连回来），
+     * 不再每次启动都换新令牌。
+     */
+    public registerLaunch(workspacePath: string, options: { token?: string } = {}): PreparedHostBridgeLaunch {
         if (!this.isListening || this.serverPort === undefined) {
             throw new Error('Host Bridge listener is not running');
         }
 
-        const registration: HostBridgeRegistration = {
-            id: crypto.randomUUID(),
-            token: crypto.randomBytes(32).toString('hex'),
-            workspacePath,
-            createdAt: Date.now(),
-            lastSeenAt: Date.now()
-        };
-        this.registrations.set(registration.id, registration);
+        const token = options.token?.trim() || crypto.randomBytes(32).toString('hex');
+        const reusable = options.token ? this.findRegistration(token) : undefined;
+        const registration: HostBridgeRegistration = reusable && reusable.workspacePath === workspacePath
+            ? reusable
+            : {
+                id: crypto.randomUUID(),
+                token,
+                workspacePath,
+                createdAt: Date.now(),
+                lastSeenAt: Date.now()
+            };
+        if (registration !== reusable) {
+            this.registrations.set(registration.id, registration);
+        }
+        registration.lastSeenAt = Date.now();
         this.emitChange();
         return {
             registrationId: registration.id,
@@ -330,8 +344,38 @@ export class HostBridgeServer {
     }
 
     private async listen(port: number): Promise<number> {
+        const candidates = port > 0
+            ? Array.from({ length: PORT_FALLBACK_ATTEMPTS }, (_, index) => port + index)
+            : [0];
+        let lastError: Error | undefined;
+        for (const candidate of candidates) {
+            try {
+                return await this.bind(candidate);
+            } catch (error) {
+                lastError = toError(error);
+                if (!isPortUnavailable(lastError)) {
+                    break;
+                }
+            }
+        }
+        if (port > 0) {
+            // 整段端口都被占用时退回随机端口：连接靠令牌识别，端口只影响「重载后能否连回」。
+            try {
+                return await this.bind(0);
+            } catch (error) {
+                lastError = toError(error);
+            }
+        }
+        this.server = undefined;
+        this.serverPort = undefined;
+        this.serverStatus = 'error';
+        this.serverError = lastError?.message ?? 'Host Bridge listener failed to start';
+        this.emitChange();
+        throw lastError ?? new Error('Host Bridge listener failed to start');
+    }
+
+    private async bind(port: number): Promise<number> {
         const server = net.createServer({ allowHalfOpen: false }, socket => this.acceptSocket(socket));
-        this.server = server;
         try {
             const boundPort = await new Promise<number>((resolve, reject) => {
                 const handleError = (error: Error) => {
@@ -357,18 +401,15 @@ export class HostBridgeServer {
                 this.emitChange();
             });
             server.unref();
+            this.server = server;
             this.serverStatus = 'listening';
             this.serverPort = boundPort;
             this.serverError = undefined;
             this.emitChange();
             return boundPort;
         } catch (error) {
-            this.server = undefined;
-            this.serverPort = undefined;
-            this.serverStatus = 'error';
-            this.serverError = error instanceof Error ? error.message : String(error);
+            server.removeAllListeners();
             server.close();
-            this.emitChange();
             throw error;
         }
     }
@@ -885,6 +926,16 @@ export class HostBridgeServer {
         this.events.emit('change', this.getSnapshot());
     }
 
+}
+
+function toError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+}
+
+/** 端口不可用（被占用 / 无权限 / 地址不可用）时换下一个候选，其他错误直接失败。 */
+function isPortUnavailable(error: Error): boolean {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === 'EADDRINUSE' || code === 'EACCES' || code === 'EADDRNOTAVAIL';
 }
 
 function isLoopbackAddress(address: string | undefined): boolean {
