@@ -31,6 +31,26 @@ export async function writePythonMemoryReport(
     return { markdownPath, svgPath };
 }
 
+/** 给外部 Agent 的提问：带上完整报告正文，粘到任意对话窗口就能用。 */
+export function buildPythonMemoryAnalysisPrompt(markdownPath: string, markdown: string): string {
+    return [
+        '请分析下面这份《我的世界》中国版 Python 内存增长报告。',
+        '',
+        '报告文件：' + markdownPath,
+        '',
+        '--- 报告正文开始 ---',
+        '',
+        markdown.trim(),
+        '',
+        '--- 报告正文结束 ---',
+        '',
+        '重点回答：1) 哪些对象/分配点增长最多；'
+        + '2) 增长是否集中在某个模块或某类回调，属于持续累积还是启动期开销；'
+        + '3) 是否存在明显的泄漏模式（缓存不设上限、事件监听未注销、循环引用等）；'
+        + '4) 按收益排序给出优化建议，并指明对应的文件与行号。'
+    ].join('\n');
+}
+
 function renderMarkdown(context: PythonMemoryReportContext, result: PythonMemoryResult): string {
     const allocations = result.allocations.slice().sort((left, right) => (
         Math.abs(right.sizeDiff) - Math.abs(left.sizeDiff)

@@ -26,8 +26,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(mcdevConfigStore);
     hostBridgeManager = await HostBridgeManager.create(context, mcdevConfigStore);
     context.subscriptions.push(hostBridgeManager);
-    gameDebuggerPanel = new GameDebuggerPanel(context.extensionUri, hostBridgeManager);
+    // 面板样式：studio = 只保留性能采集相关页签（自用默认），full = 原作者的多页签调试面板
+    const debugViewStyle = vscode.workspace.getConfiguration('mcdev-tools').get<string>('debugView.style', 'studio');
+    gameDebuggerPanel = new GameDebuggerPanel(
+        context.extensionUri,
+        hostBridgeManager,
+        debugViewStyle === 'full' ? 'full' : 'studio'
+    );
     context.subscriptions.push(gameDebuggerPanel);
+    // 次级侧边栏（辅助侧边栏）里的停靠视图，和编辑器页签共用同一套调试逻辑
+    const gameDebuggerView = vscode.window.registerWebviewViewProvider(
+        'mcdev-tools.debugView',
+        {
+            resolveWebviewView: (view: vscode.WebviewView) => {
+                gameDebuggerPanel?.resolveWebviewView(view);
+            }
+        },
+        { webviewOptions: { retainContextWhenHidden: true } }
+    );
+    context.subscriptions.push(gameDebuggerView);
     registerGameDebuggerAutoOpen(context);
     registerPerfMonitorAutoOpen(context);
 
@@ -83,7 +100,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
     });
 
     const openGameDebuggerCmd = vscode.commands.registerCommand('mcdev-tools.openGameDebugger', () => {
-        gameDebuggerPanel?.show();
+        openGameDebugger();
     });
 
     // 独立性能监测窗口（启动游戏后会自动打开，也可以手动打开）
@@ -107,9 +124,31 @@ function openPerfMonitor(options: { autoStart?: boolean } = {}): void {
 let autoOpenedDebuggerSessionId: string | undefined;
 
 /**
- * 游戏进入 game_ready 后自动把「游戏调试」整块面板弹成一个独立窗口（默认在侧边打开），
+ * 按设置打开「游戏调试」面板：默认在编辑器区单开一个页签，也可以改成停靠到次级侧边栏。
+ */
+function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
+    const surface = vscode.workspace.getConfiguration('mcdev-tools').get<string>('gameDebugger.surface', 'editor');
+    if (surface === 'editor') {
+        gameDebuggerPanel?.show();
+        return;
+    }
+    void vscode.commands.executeCommand('mcdev-tools.debugView.focus');
+    if (!options.fallbackToEditor) {
+        return;
+    }
+    // 停靠视图有时还没来得及被 VS Code 解析出来（辅助侧边栏被收起/容器被关掉），
+    // 那就退回编辑器页签，保证「自动打开」这件事一定发生。
+    setTimeout(() => {
+        if (!gameDebuggerPanel?.hasSurface) {
+            gameDebuggerPanel?.show();
+        }
+    }, 1200);
+}
+
+/**
+ * 游戏进入 game_ready 后自动打开「游戏调试」面板（位置由 gameDebugger.surface 决定），
  * 里面已经包含代码执行、UI 调试、性能监测等页签。
- * 关掉 mcdev-tools.gameDebugger.autoOpen 即可恢复成手动点按钮打开。
+ * 关掉 mcdev-tools.gameDebugger.autoOpen 即可恢复成手动打开。
  */
 function registerGameDebuggerAutoOpen(context: vscode.ExtensionContext): void {
     if (!hostBridgeManager) {
@@ -126,9 +165,34 @@ function registerGameDebuggerAutoOpen(context: vscode.ExtensionContext): void {
             return;
         }
         autoOpenedDebuggerSessionId = readySession.id;
-        gameDebuggerPanel?.show();
+        openGameDebugger({ fallbackToEditor: true });
     });
     context.subscriptions.push(subscription);
+    // 插件激活/重载窗口时游戏可能早就是 game_ready 了，不会再有状态变化事件，这里补一次即时检查
+    maybeAutoOpenDebugger();
+    const retry = setTimeout(() => maybeAutoOpenDebugger(), 3000);
+    context.subscriptions.push({ dispose: () => clearTimeout(retry) });
+}
+
+/**
+ * 立即检查一次当前 Host Bridge 快照，如果游戏已就绪且还没自动打开过，就打开面板。
+ */
+function maybeAutoOpenDebugger(): void {
+    if (!hostBridgeManager) {
+        return;
+    }
+    if (!vscode.workspace.getConfiguration('mcdev-tools').get<boolean>('gameDebugger.autoOpen', true)) {
+        return;
+    }
+    const snapshot = hostBridgeManager.getSnapshot();
+    const readySession = snapshot.sessions.find(
+        session => session.connected && session.state === 'game_ready'
+    );
+    if (!readySession || readySession.id === autoOpenedDebuggerSessionId) {
+        return;
+    }
+    autoOpenedDebuggerSessionId = readySession.id;
+    openGameDebugger({ fallbackToEditor: true });
 }
 
 let autoOpenedPerfSessionId: string | undefined;
@@ -319,7 +383,9 @@ async function runMcdk(): Promise<void> {
             name: 'Minecraft ModPC (mcdk)',
             shellPath: mcdkPath,
             cwd: workspaceFolder.uri.fsPath,
-            env: env
+            env: env,
+            // 不要在重载窗口后恢复这个终端：扩展升级换了目录后旧路径会失效，恢复时报“shell 可执行文件路径不存在”
+            isTransient: true
         });
     } catch (error) {
         if (bridgeLaunch && hostBridgeManager) {

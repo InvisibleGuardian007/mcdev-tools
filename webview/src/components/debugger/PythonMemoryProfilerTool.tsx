@@ -7,21 +7,25 @@ import {
   PythonMemoryState,
 } from '../../types';
 import { vscode } from '../../vscode';
+import type { CaptureSync } from '../../WorkbenchApp';
 
 interface PythonMemoryProfilerToolProps {
   session?: HostBridgeSessionSummary;
   t: I18nText;
+  /** 集成面板的「开始/停止采集」信号 */
+  sync?: CaptureSync;
 }
 
 const DEFAULT_DEPTH = 8;
 const MAX_DEPTH = 16;
 
-export function PythonMemoryProfilerTool({ session, t }: PythonMemoryProfilerToolProps) {
+export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfilerToolProps) {
   const [tracebackDepth, setTracebackDepth] = useState(DEFAULT_DEPTH);
   const [collectGarbage, setCollectGarbage] = useState(true);
   const [state, setState] = useState<PythonMemoryState>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [, setClockTick] = useState(0);
   const contextKey = session ? `${session.id}:${session.connectionGeneration}` : '';
   const completed = state?.completed;
@@ -75,11 +79,20 @@ export function PythonMemoryProfilerTool({ session, t }: PythonMemoryProfilerToo
       } else if (message.type === 'pythonMemoryProfilerInvalidated') {
         setState(undefined);
         setPending(false);
+      } else if (message.type === 'pythonMemoryProfilerAnalyzed') {
+        setPending(false);
+        setError(undefined);
+        setNotice(message.promptCopied === false
+          ? t.pythonMemoryAnalyzeFallback
+          : t.pythonMemoryAnalyzed);
+      } else if (message.type === 'pythonMemoryProfilerAnalyzeFailed') {
+        setPending(false);
+        setError(typeof message.message === 'string' ? message.message : t.hostBridgeRequestFailed);
       }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [contextKey, session, t.hostBridgeRequestFailed]);
+  }, [contextKey, session, t.hostBridgeRequestFailed, t.pythonMemoryAnalyzed, t.pythonMemoryAnalyzeFallback]);
 
   useEffect(() => {
     if (state?.status !== 'running') {
@@ -118,6 +131,35 @@ export function PythonMemoryProfilerTool({ session, t }: PythonMemoryProfilerToo
       collectGarbage,
     });
   };
+
+  const analyzeWithAgent = () => {
+    if (!session || pending || !completed?.result) {
+      return;
+    }
+    setPending(true);
+    setError(undefined);
+    setNotice(undefined);
+    vscode.postMessage({
+      type: 'pythonMemoryProfilerAnalyze',
+      requestId: createRequestId(),
+      sessionId: session.id,
+      connectionGeneration: session.connectionGeneration,
+    });
+  };
+
+  // 集成面板的「开始采集 / 停止采集」按钮会同时广播给性能与内存两个工具
+  const syncNonceRef = useRef(0);
+  useEffect(() => {
+    if (!sync || sync.nonce === syncNonceRef.current) {
+      return;
+    }
+    syncNonceRef.current = sync.nonce;
+    if (sync.kind === 'start') {
+      start();
+    } else {
+      stop();
+    }
+  }, [sync?.nonce]);
 
   const reportAction = (
     type: 'pythonMemoryProfilerSaveReport' | 'pythonMemoryProfilerOpenReport' | 'pythonMemoryProfilerRevealReport',
@@ -213,6 +255,18 @@ export function PythonMemoryProfilerTool({ session, t }: PythonMemoryProfilerToo
             <span>{t.pythonMemorySaveReport}</span>
           </button>
         )}
+        {result && (
+          <button
+            type="button"
+            className="python-memory-analyze"
+            disabled={pending}
+            onClick={analyzeWithAgent}
+            title={t.pythonMemoryAnalyzeHint}
+          >
+            <span className="codicon codicon-copy" />
+            <span>{t.pythonMemoryAnalyze}</span>
+          </button>
+        )}
         {completed?.report && (
           <div className="python-memory-report-actions">
             <button type="button" onClick={() => reportAction('pythonMemoryProfilerOpenReport', 'markdown')} title={t.pythonMemoryOpenMarkdown}>
@@ -232,6 +286,13 @@ export function PythonMemoryProfilerTool({ session, t }: PythonMemoryProfilerToo
         <div className="python-memory-error" role="alert">
           <span className="codicon codicon-error" />
           <span>{error || `${t.pythonMemoryReportFailed}: ${completed?.reportError}`}</span>
+        </div>
+      )}
+
+      {notice && !error && (
+        <div className="python-memory-notice" role="status">
+          <span className="codicon codicon-check" />
+          <span>{notice}</span>
         </div>
       )}
 

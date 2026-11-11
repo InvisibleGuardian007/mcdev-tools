@@ -372,7 +372,7 @@ export function PerfMonitorTool({ session, t, autoStart }: PerfMonitorToolProps)
           break;
         case 'perfMonitorAnalyzed': {
           setPending(false);
-          const fallback = message.chatOpened === false ? ` ${t.perfMonitorAnalyzeFallback}` : '';
+          const fallback = message.promptCopied === false ? ` ${t.perfMonitorAnalyzeFallback}` : '';
           setNotice(`${t.perfMonitorAnalyzed}: ${message.reportPath}${fallback}`);
           break;
         }

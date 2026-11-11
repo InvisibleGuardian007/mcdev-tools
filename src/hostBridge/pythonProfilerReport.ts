@@ -36,6 +36,26 @@ export async function writePythonProfilerReport(
     return { markdownPath, svgPath };
 }
 
+/** 给外部 Agent 的提问：带上完整报告正文，粘到任意对话窗口就能用。 */
+export function buildPythonProfilerAnalysisPrompt(markdownPath: string, markdown: string): string {
+    return [
+        '请分析下面这份《我的世界》中国版服务端/客户端的 Python 性能采样报告。',
+        '',
+        '报告文件：' + markdownPath,
+        '',
+        '--- 报告正文开始 ---',
+        '',
+        markdown.trim(),
+        '',
+        '--- 报告正文结束 ---',
+        '',
+        '重点回答：1) 总耗时最高的几个函数分别是谁，占了多少；'
+        + '2) 哪些函数自身耗时高（自身耗时占比大），说明是真正的热点逻辑；'
+        + '3) 调用关系里有没有被反复调用的热点链路，能否合并或缓存；'
+        + '4) 按收益从大到小给出优化建议，并指明对应的文件与行号。'
+    ].join('\n');
+}
+
 function renderMarkdown(
     context: PythonProfilerReportContext,
     result: PythonProfilerResult
@@ -63,6 +83,32 @@ function renderMarkdown(
         const average = item.calls > 0 ? item.totalTime / item.calls : 0;
         lines.push(`| ${index + 1} | ${md(item.name)} | ${md(formatLocation(item.module, item.line))} | ${item.calls} | ${formatSeconds(item.selfTime, item.calls, result.clock)} | ${formatSeconds(item.totalTime, item.calls, result.clock)} | ${formatSeconds(average, item.calls, result.clock)} | ${md(formatContext(item))} |`);
     });
+    // 按「类 / 模块」聚合，回答「到底是哪个类慢」——cProfile 的方法名形如 ClassName.method
+    const owners = new Map<string, { functions: Set<number>; calls: number; selfTime: number; totalTime: number }>();
+    for (const item of result.functions) {
+        const key = formatOwner(item);
+        let acc = owners.get(key);
+        if (!acc) {
+            acc = { functions: new Set<number>(), calls: 0, selfTime: 0, totalTime: 0 };
+            owners.set(key, acc);
+        }
+        acc.functions.add(item.id);
+        acc.calls += item.calls;
+        acc.selfTime += item.selfTime;
+        acc.totalTime += item.totalTime;
+    }
+    const hotOwners = Array.from(owners.entries())
+        .sort((left, right) => right[1].totalTime - left[1].totalTime)
+        .slice(0, 20);
+    lines.push('', '## Hot Classes / Modules', '');
+    if (hotOwners.length === 0) {
+        lines.push('No project Python functions were captured.');
+    } else {
+        lines.push('| # | Class / Module | Functions | Calls | Self | Total |', '| -: | --- | ---: | ---: | ---: | ---: |');
+        hotOwners.forEach(([name, acc], index) => {
+            lines.push(`| ${index + 1} | ${md(name)} | ${acc.functions.size} | ${acc.calls} | ${formatSeconds(acc.selfTime, acc.calls, result.clock)} | ${formatSeconds(acc.totalTime, acc.calls, result.clock)} |`);
+        });
+    }
     lines.push('', '## Call Relationships', '');
     if (calls.length === 0) {
         lines.push('No retained project-to-project call edges were captured.');
@@ -171,6 +217,15 @@ function formatContext(item: PythonProfilerResult['functions'][number]): string 
 
 function shorten(value: string, maximum: number): string {
     return value.length <= maximum ? value : `${value.slice(0, maximum - 3)}...`;
+}
+
+/** 把 ClassName.method / module.function 收敛成「类名/模块名」，用于按类聚合 */
+function formatOwner(item: PythonProfilerResult['functions'][number]): string {
+    const dot = item.name.lastIndexOf('.');
+    if (dot > 0) {
+        return item.name.slice(0, dot);
+    }
+    return item.module || '(unknown)';
 }
 
 function md(value: string): string {

@@ -27,6 +27,7 @@ export interface PerfRecordPayload {
 export interface PerfReportResult {
     reportPath: string;
     recordPath: string;
+    /** 完整报告正文，复制给外部 Agent 时直接带上，不再依赖文件路径 */
     prompt: string;
 }
 
@@ -249,18 +250,33 @@ export function buildPerfReportMarkdown(payload: PerfRecordPayload, recordPath: 
     return lines.join('\n');
 }
 
-export function buildPerfAnalysisPrompt(reportPath: string, recordPath: string | undefined): string {
+export function buildPerfAnalysisPrompt(
+    reportPath: string,
+    recordPath: string | undefined,
+    markdown: string
+): string {
     const parts = [
-        '请分析这份《我的世界》中国版游戏性能采样报告：' + reportPath
+        '请分析下面这份《我的世界》中国版游戏进程性能采样报告。',
+        '',
+        '报告文件：' + reportPath
     ];
     if (recordPath) {
-        parts.push('（原始采样数据：' + recordPath + '）');
+        parts.push('原始采样数据：' + recordPath);
     }
-    parts.push('重点回答：1) 帧率是否稳定，掉帧集中在哪些时间点；'
+    parts.push(
+        '',
+        '--- 报告正文开始 ---',
+        '',
+        markdown.trim(),
+        '',
+        '--- 报告正文结束 ---',
+        '',
+        '重点回答：1) 帧率是否稳定，掉帧集中在哪些时间点；'
         + '2) CPU 占用是否过高、有没有持续 100% 以上的单核打满；'
         + '3) 内存是否有持续增长趋势，是否存在泄漏迹象；'
-        + '4) 结合数据给出按优先级排序的优化建议。');
-    return parts.join('');
+        + '4) 结合数据给出按优先级排序的优化建议。'
+    );
+    return parts.join('\n');
 }
 
 /**
@@ -288,6 +304,6 @@ export async function savePerfReport(payload: PerfRecordPayload): Promise<PerfRe
     return {
         reportPath,
         recordPath: recordPath ?? '',
-        prompt: buildPerfAnalysisPrompt(reportPath, recordPath)
+        prompt: buildPerfAnalysisPrompt(reportPath, recordPath, markdown)
     };
 }

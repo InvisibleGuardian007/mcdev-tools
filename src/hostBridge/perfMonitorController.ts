@@ -18,6 +18,7 @@ import {
     savePerfReport
 } from './perfMonitorRecords';
 import { HostBridgeSnapshot } from './types';
+import { copyToClipboard } from '../utils/clipboard';
 
 export const PERF_MONITOR_DEFAULT_INTERVAL_MS = 1_000;
 export const PERF_MONITOR_MIN_INTERVAL_MS = 500;
@@ -31,9 +32,10 @@ const GAME_PROCESS_NAME = 'Minecraft.Windows.exe';
 const PERF_AUTOSAVE_MS = 30_000;
 
 /**
- * Client side snippet used to read the frame rate. The exact module that
- * exposes GetFps varies between SDK builds, so the snippet probes the known
- * names and reports which one answered; the monitor keeps working without it.
+ * Client side snippet used to read the frame rate. The documented entry point is
+ * `clientApi.GetEngineCompFactory().CreateGame(levelId).GetFps()`; older builds only
+ * expose a module level helper, so the snippet tries the component first and falls
+ * back to the flat names. The monitor keeps working when nothing answers.
  */
 const FPS_PROBE_CODE = [
     '_r=[None,None]',
@@ -42,17 +44,42 @@ const FPS_PROBE_CODE = [
     'except Exception:',
     ' _c=None',
     'if _c is not None:',
-    " for _n in ('GetFps','GetFPS','GetFrameRate','GetFpsValue','GetCurrentFps'):",
-    '  _f=getattr(_c,_n,None)',
-    '  if not callable(_f):',
-    '   continue',
+    ' try:',
+    '  _factory=_c.GetEngineCompFactory()',
+    ' except Exception:',
+    '  _factory=None',
+    ' if _factory is not None:',
     '  try:',
-    '   _v=_f()',
+    '   _level=_c.GetLevelId()',
     '  except Exception:',
-    '   continue',
-    '  if isinstance(_v,(int,float)) and not isinstance(_v,bool):',
-    '   _r=[_n,float(_v)]',
-    '   break',
+    '   _level=\'\'',
+    "  for _lv in (_level,''):",
+    '   try:',
+    '    _comp=_factory.CreateGame(_lv)',
+    '   except Exception:',
+    '    continue',
+    "   _get=getattr(_comp,'GetFps',None)",
+    '   if not callable(_get):',
+    '    continue',
+    '   try:',
+    '    _v=_get()',
+    '   except Exception:',
+    '    continue',
+    '   if isinstance(_v,(int,float)) and not isinstance(_v,bool) and _v>0:',
+    "    _r=['GameComponentClient.GetFps',float(_v)]",
+    '    break',
+    ' if _r[0] is None:',
+    "  for _n in ('GetFps','GetFrameRate','GetCurrentFps'):",
+    '   _get=getattr(_c,_n,None)',
+    '   if not callable(_get):',
+    '    continue',
+    '   try:',
+    '    _v=_get()',
+    '   except Exception:',
+    '    continue',
+    '   if isinstance(_v,(int,float)) and not isinstance(_v,bool) and _v>0:',
+    '    _r=[_n,float(_v)]',
+    '    break',
     '_result=_r'
 ].join('\n');
 
@@ -743,8 +770,8 @@ export class PerfMonitorController implements vscode.Disposable {
     }
 
     /**
-     * 「交给 Agent 分析」：写一份 Markdown 报告 + 带时间戳的原始数据，
-     * 把追问文本放进剪贴板并尝试直接打开聊天输入框，用户回车即可开始分析。
+     * 「复制分析提问」：写一份 Markdown 报告 + 带时间戳的原始数据，
+     * 然后把「追问 + 完整报告正文」放进剪贴板，用户自己粘到任意 Agent 里发送。
      */
     private async analyze(
         webview: vscode.Webview,
@@ -765,13 +792,7 @@ export class PerfMonitorController implements vscode.Disposable {
             });
             return;
         }
-        const copied = await vscode.env.clipboard
-            .writeText(result.prompt)
-            .then(() => true, () => false);
-        const chatOpened = await this.openChat(result.prompt);
-        void vscode.window
-            .showTextDocument(vscode.Uri.file(result.reportPath), { preview: true })
-            .then(undefined, () => undefined);
+        const copied = await copyToClipboard(result.prompt);
         await webview.postMessage({
             type: 'perfMonitorAnalyzed',
             requestId,
@@ -780,25 +801,8 @@ export class PerfMonitorController implements vscode.Disposable {
             reportPath: result.reportPath,
             recordPath: result.recordPath,
             promptCopied: copied,
-            chatOpened
+            promptLength: result.prompt.length
         });
-    }
-
-    /** 尽量打开 IDE 里的聊天面板并把问题填进去；不同版本命令签名不一样，逐个尝试。 */
-    private async openChat(prompt: string): Promise<boolean> {
-        const attempts: Array<() => Thenable<unknown>> = [
-            () => vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt }),
-            () => vscode.commands.executeCommand('workbench.action.chat.open', prompt)
-        ];
-        for (const attempt of attempts) {
-            try {
-                await attempt();
-                return true;
-            } catch {
-                continue;
-            }
-        }
-        return false;
     }
 
     private async broadcast(runtime: PerfMonitorRuntime, payload: Record<string, unknown>): Promise<void> {

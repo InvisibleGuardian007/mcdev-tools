@@ -1,5 +1,7 @@
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { copyToClipboard } from '../utils/clipboard';
 import { HostBridgeManager } from './manager';
 import {
     buildPythonProfilerCleanupCode,
@@ -13,6 +15,7 @@ import {
     PythonProfilerTarget
 } from './pythonProfiler';
 import {
+    buildPythonProfilerAnalysisPrompt,
     PythonProfilerReportFiles,
     writePythonProfilerReport
 } from './pythonProfilerReport';
@@ -97,6 +100,11 @@ export class PythonProfilerController implements vscode.Disposable {
                 case 'pythonProfilerSaveReport':
                     await this.runExclusive(key, () => this.saveReport(key, sessionId));
                     await this.postState(webview, requestId, sessionId, connectionGeneration);
+                    return true;
+                case 'pythonProfilerAnalyze':
+                    await this.runExclusive(key, () => this.analyze(
+                        key, sessionId, webview, requestId, connectionGeneration
+                    ));
                     return true;
                 case 'pythonProfilerOpenReport':
                     await this.openReport(key, message.kind === 'svg' ? 'svg' : 'markdown');
@@ -327,6 +335,41 @@ export class PythonProfilerController implements vscode.Disposable {
             sessionId,
             connectionGeneration,
             states
+        });
+    }
+
+    /**
+     * 「复制分析提问」：必要时先落报告文件，再把「追问 + 报告正文」写进剪贴板，
+     * 由用户自己粘贴到任意 Agent 窗口发送。
+     */
+    private async analyze(
+        key: string,
+        sessionId: string,
+        webview: vscode.Webview,
+        requestId: string,
+        connectionGeneration: number
+    ): Promise<void> {
+        const completed = this.completed.get(key);
+        if (!completed) {
+            throw new Error('No Python profile result is available');
+        }
+        await this.saveReport(key, sessionId);
+        const report = this.completed.get(key)?.report;
+        if (!report) {
+            throw new Error('No generated profile report is available');
+        }
+        const markdown = await fs.readFile(report.markdownPath, 'utf8');
+        const prompt = buildPythonProfilerAnalysisPrompt(report.markdownPath, markdown);
+        const copied = await copyToClipboard(prompt);
+        await webview.postMessage({
+            type: 'pythonProfilerAnalyzed',
+            requestId,
+            sessionId,
+            connectionGeneration,
+            target: completed.target,
+            reportPath: report.markdownPath,
+            promptCopied: copied,
+            promptLength: prompt.length
         });
     }
 

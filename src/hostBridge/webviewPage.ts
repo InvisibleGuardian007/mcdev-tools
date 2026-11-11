@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getNonce } from '../utils';
 
-export type HostBridgeWebviewView = 'game-debugger' | 'perf-monitor';
+export type HostBridgeWebviewView = 'game-debugger' | 'perf-monitor' | 'studio';
 
 export interface WebviewPageOptions {
     /** 浏览器标签标题，同时用于调试辅助识别 */

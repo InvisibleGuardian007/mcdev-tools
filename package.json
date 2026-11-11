@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.38",
+    "version": "0.1.44",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -265,7 +265,33 @@
                 "mcdev-tools.gameDebugger.autoOpen": {
                     "type": "boolean",
                     "default": true,
-                    "description": "启动游戏后自动弹出「游戏调试」窗口（弹窗内已包含性能监测页签）"
+                    "description": "启动游戏后自动打开「游戏调试」面板（面板内已包含性能监测页签）"
+                },
+                "mcdev-tools.gameDebugger.surface": {
+                    "type": "string",
+                    "enum": [
+                        "auxiliarybar",
+                        "editor"
+                    ],
+                    "enumDescriptions": [
+                        "停靠在次级侧边栏（辅助侧边栏），贴边常驻、不占用编辑器页签",
+                        "打开为编辑器页签，可以和文件一起管理，也可以手工拖出成独立窗口"
+                    ],
+                    "default": "editor",
+                    "description": "「性能调试」面板的打开位置（默认在编辑器区单开一个页签）"
+                },
+                "mcdev-tools.debugView.style": {
+                    "type": "string",
+                    "enum": [
+                        "studio",
+                        "full"
+                    ],
+                    "enumDescriptions": [
+                        "精简的「性能采集面板」：只保留 Python 性能、Python 内存、性能监测三个页签，顶部可一键同时采集",
+                        "原作者的多页签调试面板：代码执行、调试函数、UI 调试器、Python 性能、Python 内存、Native 性能、性能监测"
+                    ],
+                    "default": "studio",
+                    "description": "「游戏调试」停靠视图使用的面板样式（切换后需要 Developer: Reload Window 生效）"
                 },
                 "mcdev-tools.perfMonitor.autoOpen": {
                     "type": "boolean",
@@ -338,9 +364,23 @@
                     "title": "MC Dev Tools Config",
                     "icon": "./images/icon.svg"
                 }
+            ],
+            "auxiliarybar": [
+                {
+                    "id": "mcdev-tools-aux",
+                    "title": "MC Dev Tools 调试",
+                    "icon": "./images/icon.svg"
+                }
             ]
         },
         "views": {
+            "mcdev-tools-aux": [
+                {
+                    "type": "webview",
+                    "id": "mcdev-tools.debugView",
+                    "name": "性能调试"
+                }
+            ],
             "mcdev-tools": [
                 {
                     "type": "webview",

@@ -371,6 +371,22 @@ export interface I18nText {
   perfMonitorAnalyzeHint: string;
   perfMonitorAnalyzed: string;
   perfMonitorAnalyzeFallback: string;
+  pythonProfilerAnalyze: string;
+  pythonProfilerAnalyzeHint: string;
+  pythonProfilerAnalyzed: string;
+  pythonProfilerAnalyzeFallback: string;
+  pythonMemoryAnalyze: string;
+  pythonMemoryAnalyzeHint: string;
+  pythonMemoryAnalyzed: string;
+  pythonMemoryAnalyzeFallback: string;
+  pythonCombinedTab: string;
+  pythonCombinedHint: string;
+  studioTitle: string;
+  studioStartAll: string;
+  studioStopAll: string;
+  studioStartAllHint: string;
+  studioStopAllHint: string;
+  studioActionsHint: string;
   perfMonitorHistoryRestored: string;
 }
 
@@ -744,10 +760,26 @@ export const i18n: Record<string, I18nText> = {
     perfMonitorSave: "Save record",
     perfMonitorSaveHint: "Write the current samples into .mcdev/perf of the workspace so they survive closing the panel",
     perfMonitorSaved: "Record saved",
-    perfMonitorAnalyze: "Ask the agent",
-    perfMonitorAnalyzeHint: "Write a Markdown report, copy the question to the clipboard and open the chat",
-    perfMonitorAnalyzed: "Report ready",
-    perfMonitorAnalyzeFallback: "the chat did not open, the question is on the clipboard",
+    perfMonitorAnalyze: "Copy for the agent",
+    perfMonitorAnalyzeHint: "Write the Markdown report and copy the whole report to the clipboard, then paste it into your agent",
+    perfMonitorAnalyzed: "Report copied to the clipboard",
+    perfMonitorAnalyzeFallback: "copying failed, please retry",
+    pythonProfilerAnalyze: "Copy for the agent",
+    pythonProfilerAnalyzeHint: "Write the profiling report and copy the whole report to the clipboard, then paste it into your agent",
+    pythonProfilerAnalyzed: "Report copied to the clipboard",
+    pythonProfilerAnalyzeFallback: "copying failed, please retry",
+    pythonMemoryAnalyze: "Copy for the agent",
+    pythonMemoryAnalyzeHint: "Write the memory report and copy the whole report to the clipboard, then paste it into your agent",
+    pythonMemoryAnalyzed: "Report copied to the clipboard",
+    pythonMemoryAnalyzeFallback: "copying failed, please retry",
+    pythonCombinedTab: "Python performance + memory",
+    pythonCombinedHint: "Both panels stay loaded: use the top bar to capture both at once, or each panel's own Start button to capture one",
+    studioTitle: "Debug Studio",
+    studioStartAll: "Start CPU + memory capture",
+    studioStopAll: "Stop capture",
+    studioStartAllHint: "Start the Python profiler and the Python memory profiler at the same time",
+    studioStopAllHint: "Stop both captures and show the results",
+    studioActionsHint: "Start/stop both Python captures at once; the frame rate, CPU and memory series are switched on the Performance tab",
     perfMonitorHistoryRestored: "Restored the samples recorded earlier in this session",
 
   },
@@ -1120,10 +1152,26 @@ export const i18n: Record<string, I18nText> = {
     perfMonitorSave: "保存记录",
     perfMonitorSaveHint: "把当前采样写进工作区的 .mcdev/perf，关掉面板也不会丢",
     perfMonitorSaved: "记录已保存",
-    perfMonitorAnalyze: "交给 Agent 分析",
-    perfMonitorAnalyzeHint: "生成 Markdown 报告，把追问放进剪贴板并打开聊天输入框",
-    perfMonitorAnalyzed: "报告已生成",
-    perfMonitorAnalyzeFallback: "聊天窗口没有自动打开，问题文本已复制到剪贴板",
+    perfMonitorAnalyze: "复制给 Agent 分析",
+    perfMonitorAnalyzeHint: "生成 Markdown 报告并把完整报告内容复制到剪贴板，直接粘给 Agent 即可",
+    perfMonitorAnalyzed: "报告已复制到剪贴板",
+    perfMonitorAnalyzeFallback: "复制失败，请重试",
+    pythonProfilerAnalyze: "复制给 Agent 分析",
+    pythonProfilerAnalyzeHint: "生成性能报告并把完整报告内容复制到剪贴板，直接粘给 Agent 即可",
+    pythonProfilerAnalyzed: "报告已复制到剪贴板",
+    pythonProfilerAnalyzeFallback: "复制失败，请重试",
+    pythonMemoryAnalyze: "复制给 Agent 分析",
+    pythonMemoryAnalyzeHint: "生成内存报告并把完整报告内容复制到剪贴板，直接粘给 Agent 即可",
+    pythonMemoryAnalyzed: "报告已复制到剪贴板",
+    pythonMemoryAnalyzeFallback: "复制失败，请重试",
+    pythonCombinedTab: "Python 性能+内存",
+    pythonCombinedHint: "两个采集都常驻：顶部按钮可同时启动，也可以用各自工具条单独开始/停止",
+    studioTitle: "性能调试面板",
+    studioStartAll: "开始采集（性能+内存）",
+    studioStopAll: "停止采集",
+    studioStartAllHint: "同时启动 Python 性能采样与 Python 内存采样",
+    studioStopAllHint: "同时停止性能采样与内存采样并出结果",
+    studioActionsHint: "一键同时启停 Python 性能与内存；帧率 / CPU / 内存曲线在「性能监测」页签自己开关",
     perfMonitorHistoryRestored: "已恢复本会话此前记录的采样",
   },
 };

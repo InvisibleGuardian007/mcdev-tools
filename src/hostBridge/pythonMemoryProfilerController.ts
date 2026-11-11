@@ -1,5 +1,7 @@
+import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { copyToClipboard } from '../utils/clipboard';
 import { HostBridgeManager } from './manager';
 import {
     buildPythonMemoryCleanupCode,
@@ -11,6 +13,7 @@ import {
     PYTHON_MEMORY_MAX_DEPTH
 } from './pythonMemoryProfiler';
 import {
+    buildPythonMemoryAnalysisPrompt,
     PythonMemoryReportFiles,
     writePythonMemoryReport
 } from './pythonMemoryProfilerReport';
@@ -80,6 +83,11 @@ export class PythonMemoryProfilerController implements vscode.Disposable {
                 case 'pythonMemoryProfilerSaveReport':
                     await this.runExclusive(key, () => this.saveReport(key, sessionId));
                     await this.postState(webview, requestId, sessionId, connectionGeneration);
+                    return true;
+                case 'pythonMemoryProfilerAnalyze':
+                    await this.runExclusive(key, () => this.analyze(
+                        key, sessionId, webview, requestId, connectionGeneration
+                    ));
                     return true;
                 case 'pythonMemoryProfilerOpenReport':
                     await this.openReport(key, message.kind === 'svg' ? 'svg' : 'markdown');
@@ -271,6 +279,39 @@ export class PythonMemoryProfilerController implements vscode.Disposable {
             completed.reportError = error instanceof Error ? error.message : String(error);
             throw error;
         }
+    }
+
+    /**
+     * 「复制分析提问」：必要时先落报告文件，再把「追问 + 报告正文」写进剪贴板。
+     */
+    private async analyze(
+        key: string,
+        sessionId: string,
+        webview: vscode.Webview,
+        requestId: string,
+        connectionGeneration: number
+    ): Promise<void> {
+        const completed = this.completed.get(key);
+        if (!completed) {
+            throw new Error('No Python memory result is available');
+        }
+        await this.saveReport(key, sessionId);
+        const report = this.completed.get(key)?.report;
+        if (!report) {
+            throw new Error('No generated Python memory report is available');
+        }
+        const markdown = await fs.readFile(report.markdownPath, 'utf8');
+        const prompt = buildPythonMemoryAnalysisPrompt(report.markdownPath, markdown);
+        const copied = await copyToClipboard(prompt);
+        await webview.postMessage({
+            type: 'pythonMemoryProfilerAnalyzed',
+            requestId,
+            sessionId,
+            connectionGeneration,
+            reportPath: report.markdownPath,
+            promptCopied: copied,
+            promptLength: prompt.length
+        });
     }
 
     private async openReport(key: string, kind: 'markdown' | 'svg'): Promise<void> {

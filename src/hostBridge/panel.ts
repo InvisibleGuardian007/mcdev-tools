@@ -6,6 +6,7 @@ import {
     validateSavedFunction
 } from '../debugFunctions';
 import { buildWebviewPage } from './webviewPage';
+import { getNonce } from '../utils';
 import { HostBridgeManager } from './manager';
 import { LatestOperationQueue } from './latestOperationQueue';
 import { HostBridgeRpcError } from './server';
@@ -41,12 +42,37 @@ interface UiPickerRuntime {
     webview: vscode.Webview;
 }
 
+const GAME_DEBUGGER_VIEW_ID = 'mcdev-tools.debugView';
+
+/**
+ * 'full'   = 原版页签顺序（代码执行 / 调试函数 / UI 调试器 / Python 性能 / Python 内存 / Native 性能 / 性能监测）
+ * 'studio' = 自用顺序（Python 性能+内存 合并 / 性能监测 / UI 调试器 / Native 性能 / 代码执行 / 调试函数），顶部多一条同采同停操作条
+ */
+export type DebuggerMode = 'full' | 'studio';
+
+/**
+ * 面板宿主抽象：同一套调试逻辑既能挂在编辑器页签（WebviewPanel）上，
+ * 也能挂在次级侧边栏的停靠视图（WebviewView）上。
+ */
+interface DebuggerSurface {
+    readonly kind: 'panel' | 'view';
+    readonly webview: vscode.Webview;
+    readonly visible: boolean;
+    reveal(): void;
+    dispose(): void;
+    onDispose(listener: () => void): DisposableLike;
+    onVisibilityChange(listener: (visible: boolean) => void): DisposableLike;
+}
+
 export class GameDebuggerPanel implements vscode.Disposable {
-    private panel?: vscode.WebviewPanel;
+    private surface?: DebuggerSurface;
+    /** 停靠视图实例只由 VS Code 解析一次，留一份引用用于「切回侧边栏」时重新挂载。 */
+    private lastView?: vscode.WebviewView;
+    private placeholderSubscription?: vscode.Disposable;
     private bridgeSubscription?: DisposableLike;
     private messageSubscription?: vscode.Disposable;
-    private panelDisposeSubscription?: vscode.Disposable;
-    private panelViewStateSubscription?: vscode.Disposable;
+    private surfaceDisposeSubscription?: vscode.Disposable;
+    private surfaceVisibilitySubscription?: vscode.Disposable;
     private debugFunctionService?: DebugFunctionService;
     private readonly uiPickers = new Map<string, UiPickerRuntime>();
     private readonly uiPickerQueue = new LatestOperationQueue();
@@ -59,27 +85,41 @@ export class GameDebuggerPanel implements vscode.Disposable {
 
     constructor(
         private readonly extensionUri: vscode.Uri,
-        private readonly hostBridgeManager: HostBridgeManager
+        private readonly hostBridgeManager: HostBridgeManager,
+        private readonly mode: DebuggerMode = 'full'
     ) {}
 
     /**
      * 标题保持简洁，版本号只显示在面板内的构建徽标上，避免每次升级都要刷新标题。
      */
     private resolvePanelTitle(): string {
-        return 'MC Dev Tools - 游戏调试';
+        return this.mode === 'studio' ? 'MC Dev Tools - 性能调试' : 'MC Dev Tools - 游戏调试';
     }
 
+    /** 是否已经挂上了某个宿主（编辑器页签或停靠视图），自动打开失败时用来兜底判断。 */
+    public get hasSurface(): boolean {
+        return this.surface !== undefined;
+    }
+
+    /** 打开为编辑器页签（当前编辑器组里单开一个标签）。 */
     public show(): void {
-        if (this.panel) {
-            this.panel.reveal(this.panel.viewColumn, false);
+        if (this.surface?.kind === 'panel') {
+            this.surface.reveal();
             return;
         }
+        if (this.surface?.kind === 'view') {
+            // 默认位置是编辑器页签：让侧边栏视图让位，并给它留一个可以切回来的占位页。
+            const staleView = this.lastView;
+            void this.releaseSurface();
+            if (staleView) {
+                this.renderViewPlaceholder(staleView);
+            }
+        }
 
-        // 弹成独立窗口（默认在活动编辑器旁边），不再挤在编辑器里当普通页签
         const panel = vscode.window.createWebviewPanel(
             'mcdev-tools.gameDebugger',
             this.resolvePanelTitle(),
-            { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
+            { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
             {
                 enableScripts: true,
                 enableFindWidget: true,
@@ -87,13 +127,81 @@ export class GameDebuggerPanel implements vscode.Disposable {
                 localResourceRoots: [this.extensionUri]
             }
         );
-        this.panel = panel;
-        this.pythonProfilerController = new PythonProfilerController(this.hostBridgeManager);
         panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'icon.png');
-        panel.webview.html = this.getHtml(panel.webview);
+        this.attach(createPanelSurface(panel));
+        panel.reveal(panel.viewColumn, false);
+    }
 
-        this.messageSubscription = panel.webview.onDidReceiveMessage(message => {
-            void this.handleMessage(panel.webview, message);
+    /** 停靠到次级侧边栏（辅助侧边栏）的视图入口。 */
+    public resolveWebviewView(view: vscode.WebviewView): void {
+        this.lastView = view;
+        const previous = this.surface;
+        if (previous?.kind === 'view') {
+            return;
+        }
+        if (previous) {
+            // 侧边栏视图优先：把编辑器页签收掉，避免两套控制器抢同一条会话
+            void this.releaseSurface();
+            previous.dispose();
+        }
+        view.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this.extensionUri]
+        };
+        this.attach(createViewSurface(view));
+    }
+
+    /**
+     * 面板搬到编辑器页签后，侧边栏那格只剩一个说明页 + 「在侧边栏显示」按钮，
+     * 避免停靠视图留着上一套已经释放的界面点不动。
+     */
+    private renderViewPlaceholder(view: vscode.WebviewView): void {
+        const nonce = getNonce();
+        view.webview.options = { enableScripts: true, localResourceRoots: [this.extensionUri] };
+        view.webview.html = `<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${view.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body { margin: 0; padding: 12px; font-family: var(--vscode-font-family); font-size: 12px; color: var(--vscode-descriptionForeground); }
+        h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--vscode-foreground); }
+        p { margin: 0 0 10px; line-height: 1.6; }
+        button { font-family: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); cursor: pointer; }
+        button:hover { background: var(--vscode-button-hoverBackground); }
+    </style>
+</head>
+<body>
+    <h2>面板已在编辑器页签打开</h2>
+    <p>「性能调试」现在单开在编辑器区的标签页里，页签栏和全部工具都在那边。</p>
+    <p>想放回侧边栏就点下面的按钮。</p>
+    <button id="attach">在侧边栏显示</button>
+    <script nonce="${nonce}">
+        const vscode = acquireVsCodeApi();
+        document.getElementById('attach').addEventListener('click', () => vscode.postMessage({ type: 'attachViewSurface' }));
+    </script>
+</body>
+</html>`;
+        this.placeholderSubscription?.dispose();
+        this.placeholderSubscription = view.webview.onDidReceiveMessage(message => {
+            if (message?.type === 'attachViewSurface') {
+                this.placeholderSubscription?.dispose();
+                this.placeholderSubscription = undefined;
+                this.resolveWebviewView(view);
+            }
+        });
+    }
+
+    private attach(surface: DebuggerSurface): void {
+        this.placeholderSubscription?.dispose();
+        this.placeholderSubscription = undefined;
+        this.surface = surface;
+        this.pythonProfilerController = new PythonProfilerController(this.hostBridgeManager);
+        surface.webview.html = this.getHtml(surface.webview);
+
+        this.messageSubscription = surface.webview.onDidReceiveMessage(message => {
+            void this.handleMessage(surface.webview, message);
         });
         this.bridgeSubscription = this.hostBridgeManager.onDidChange(snapshot => {
             this.reconcileUiPickers(snapshot);
@@ -101,29 +209,33 @@ export class GameDebuggerPanel implements vscode.Disposable {
             this.pythonMemoryProfilerController?.reconcile(snapshot);
             this.nativeProfilerController?.reconcile(snapshot);
             this.perfMonitorController?.reconcile(snapshot);
-            void panel.webview.postMessage({ type: 'hostBridgeState', snapshot });
+            void surface.webview.postMessage({ type: 'hostBridgeState', snapshot });
         });
-        this.panelDisposeSubscription = panel.onDidDispose(() => this.releasePanel());
-        this.panelViewStateSubscription = panel.onDidChangeViewState(event => {
-            this.nativeProfilerController?.setPanelVisible(event.webviewPanel.visible);
+        this.surfaceDisposeSubscription = surface.onDispose(() => {
+            void this.releaseSurface();
+        });
+        this.surfaceVisibilitySubscription = surface.onVisibilityChange(visible => {
+            this.nativeProfilerController?.setPanelVisible(visible);
         });
     }
 
     public dispose(): void {
-        const panel = this.panel;
-        void this.releasePanel();
-        panel?.dispose();
+        this.placeholderSubscription?.dispose();
+        this.placeholderSubscription = undefined;
+        const surface = this.surface;
+        void this.releaseSurface();
+        surface?.dispose();
     }
 
     public async disposeAsync(): Promise<void> {
-        const panel = this.panel;
-        const release = this.releasePanel();
-        panel?.dispose();
+        const surface = this.surface;
+        const release = this.releaseSurface();
+        surface?.dispose();
         await release;
         await this.releasePromise;
     }
 
-    private releasePanel(): Promise<void> {
+    private releaseSurface(): Promise<void> {
         const pickerCleanup = this.disposeUiPickersAsync();
         const pythonProfilerController = this.pythonProfilerController;
         const pythonMemoryProfilerController = this.pythonMemoryProfilerController;
@@ -137,13 +249,13 @@ export class GameDebuggerPanel implements vscode.Disposable {
         this.messageSubscription = undefined;
         this.bridgeSubscription?.dispose();
         this.bridgeSubscription = undefined;
-        this.panelDisposeSubscription?.dispose();
-        this.panelDisposeSubscription = undefined;
-        this.panelViewStateSubscription?.dispose();
-        this.panelViewStateSubscription = undefined;
+        this.surfaceDisposeSubscription?.dispose();
+        this.surfaceDisposeSubscription = undefined;
+        this.surfaceVisibilitySubscription?.dispose();
+        this.surfaceVisibilitySubscription = undefined;
         this.debugFunctionService?.dispose();
         this.debugFunctionService = undefined;
-        this.panel = undefined;
+        this.surface = undefined;
 
         const cleanup = Promise.all([
             pickerCleanup,
@@ -196,7 +308,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
                 this.extensionUri.fsPath,
                 this.hostBridgeManager
             );
-            controller.setPanelVisible(this.panel?.visible ?? true);
+            controller.setPanelVisible(this.surface?.visible ?? true);
             await controller.handleMessage(webview, message);
             return;
         }
@@ -768,11 +880,51 @@ export class GameDebuggerPanel implements vscode.Disposable {
     }
 
     private getHtml(webview: vscode.Webview): string {
-        return buildWebviewPage(webview, this.extensionUri, {
-            title: 'MC Dev Tools - Game Debugger',
-            view: 'game-debugger'
-        });
+        return this.mode === 'studio'
+            ? buildWebviewPage(webview, this.extensionUri, {
+                title: 'MC Dev Tools - Studio',
+                view: 'studio'
+            })
+            : buildWebviewPage(webview, this.extensionUri, {
+                title: 'MC Dev Tools - Game Debugger',
+                view: 'game-debugger'
+            });
     }
+}
+
+function createPanelSurface(panel: vscode.WebviewPanel): DebuggerSurface {
+    return {
+        kind: 'panel',
+        get webview() {
+            return panel.webview;
+        },
+        get visible() {
+            return panel.visible;
+        },
+        reveal: () => panel.reveal(panel.viewColumn, false),
+        dispose: () => panel.dispose(),
+        onDispose: listener => panel.onDidDispose(() => listener()),
+        onVisibilityChange: listener => panel.onDidChangeViewState(event => listener(event.webviewPanel.visible))
+    };
+}
+
+function createViewSurface(view: vscode.WebviewView): DebuggerSurface {
+    return {
+        kind: 'view',
+        get webview() {
+            return view.webview;
+        },
+        get visible() {
+            return view.visible;
+        },
+        reveal: () => {
+            void vscode.commands.executeCommand(`${GAME_DEBUGGER_VIEW_ID}.focus`);
+        },
+        // 停靠视图的生命周期归 VS Code 管，这里不能销毁，只释放调试逻辑
+        dispose: () => undefined,
+        onDispose: listener => view.onDidDispose(() => listener()),
+        onVisibilityChange: listener => view.onDidChangeVisibility(() => listener(view.visible))
+    };
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

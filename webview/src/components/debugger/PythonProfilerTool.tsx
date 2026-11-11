@@ -10,22 +10,26 @@ import {
   PythonProfilerTargetState,
 } from '../../types';
 import { vscode } from '../../vscode';
+import type { CaptureSync } from '../../WorkbenchApp';
 
 interface PythonProfilerToolProps {
   session?: HostBridgeSessionSummary;
   t: I18nText;
+  /** 集成面板的「开始/停止采集」信号 */
+  sync?: CaptureSync;
 }
 
 type CaptureMode = 'timed' | 'manual';
 
-export function PythonProfilerTool({ session, t }: PythonProfilerToolProps) {
+export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps) {
   const [target, setTarget] = useState<PythonProfilerTarget>('client');
   const [clock, setClock] = useState<'CPU' | 'WALL'>('WALL');
-  const [mode, setMode] = useState<CaptureMode>('timed');
-  const [duration, setDuration] = useState('10');
+  const [mode, setMode] = useState<CaptureMode>('manual');
+  const [duration, setDuration] = useState('300');
   const [states, setStates] = useState<Partial<Record<PythonProfilerTarget, PythonProfilerTargetState>>>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [, setClockTick] = useState(0);
   const contextKey = session ? `${session.id}:${session.connectionGeneration}` : '';
   const targetState = states[target];
@@ -91,11 +95,20 @@ export function PythonProfilerTool({ session, t }: PythonProfilerToolProps) {
       } else if (message.type === 'pythonProfilerInvalidated' && isTarget(message.target)) {
         setStates(previous => ({ ...previous, [message.target]: undefined }));
         setPending(false);
+      } else if (message.type === 'pythonProfilerAnalyzed') {
+        setPending(false);
+        setError(undefined);
+        setNotice(message.promptCopied === false
+          ? t.pythonProfilerAnalyzeFallback
+          : t.pythonProfilerAnalyzed);
+      } else if (message.type === 'pythonProfilerAnalyzeFailed') {
+        setPending(false);
+        setError(typeof message.message === 'string' ? message.message : t.hostBridgeRequestFailed);
       }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [contextKey, session, t.hostBridgeRequestFailed]);
+  }, [contextKey, session, t.hostBridgeRequestFailed, t.pythonProfilerAnalyzed, t.pythonProfilerAnalyzeFallback]);
 
   useEffect(() => {
     if (targetState?.status !== 'running') {
@@ -150,6 +163,36 @@ export function PythonProfilerTool({ session, t }: PythonProfilerToolProps) {
       target,
     });
   };
+
+  const analyzeWithAgent = () => {
+    if (!session || pending || !completed?.result) {
+      return;
+    }
+    setPending(true);
+    setError(undefined);
+    setNotice(undefined);
+    vscode.postMessage({
+      type: 'pythonProfilerAnalyze',
+      requestId: createRequestId(),
+      sessionId: session.id,
+      connectionGeneration: session.connectionGeneration,
+      target,
+    });
+  };
+
+  // 集成面板的「开始采集 / 停止采集」按钮：同一时刻对两个工具广播，nonce 变化才算一次新指令
+  const syncNonceRef = useRef(0);
+  useEffect(() => {
+    if (!sync || sync.nonce === syncNonceRef.current) {
+      return;
+    }
+    syncNonceRef.current = sync.nonce;
+    if (sync.kind === 'start') {
+      start();
+    } else {
+      stop();
+    }
+  }, [sync?.nonce]);
 
   const reportAction = (
     type: 'pythonProfilerSaveReport' | 'pythonProfilerOpenReport' | 'pythonProfilerRevealReport',
@@ -283,6 +326,18 @@ export function PythonProfilerTool({ session, t }: PythonProfilerToolProps) {
             <span>{t.pythonProfilerSaveReport}</span>
           </button>
         )}
+        {result && (
+          <button
+            type="button"
+            className="python-profiler-analyze"
+            disabled={pending}
+            onClick={analyzeWithAgent}
+            title={t.pythonProfilerAnalyzeHint}
+          >
+            <span className="codicon codicon-copy" />
+            <span>{t.pythonProfilerAnalyze}</span>
+          </button>
+        )}
         {completed?.report && (
           <div className="python-profiler-report-actions">
             <button type="button" onClick={() => reportAction('pythonProfilerOpenReport', 'markdown')} title={t.pythonProfilerOpenMarkdown}>
@@ -302,6 +357,13 @@ export function PythonProfilerTool({ session, t }: PythonProfilerToolProps) {
         <div className="python-profiler-error" role="alert">
           <span className="codicon codicon-error" />
           <span>{error || `${t.pythonProfilerReportFailed}: ${completed?.reportError}`}</span>
+        </div>
+      )}
+
+      {notice && !error && (
+        <div className="python-profiler-notice" role="status">
+          <span className="codicon codicon-check" />
+          <span>{notice}</span>
         </div>
       )}
 

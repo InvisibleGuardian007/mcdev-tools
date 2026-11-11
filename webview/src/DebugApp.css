@@ -3,9 +3,26 @@ html {
 }
 
 body[data-view="game-debugger"],
-body[data-view="game-debugger"] #root {
+body[data-view="game-debugger"] #root,
+body[data-view="studio"],
+body[data-view="studio"] #root {
   height: 100%;
   overflow: hidden;
+}
+
+/* 侧边栏宽度太窄时把页签收成图标条，避免整条被挤没 */
+@media (max-width: 420px) {
+  .debug-tool-nav {
+    padding: 0 4px;
+  }
+
+  .debug-tool-nav button {
+    padding: 0 8px;
+  }
+
+  .debug-tool-nav button > span:last-child {
+    display: none;
+  }
 }
 
 .debug-workbench {
@@ -5059,4 +5076,183 @@ body[data-view="perf-monitor"] #root {
 
 .perf-window .perf-monitor-workspace {
   padding-top: 4px;
+}
+
+/* ---------- 集成性能面板（studio） ---------- */
+.debug-workbench-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+}
+
+.studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-action {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.studio-action--start {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+}
+
+.studio-action--start:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.studio-action--stop {
+  color: var(--vscode-errorForeground, #f48771);
+  background-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 12%, transparent);
+  border-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 45%, transparent);
+}
+
+.studio-action--stop:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 22%, transparent);
+}
+
+.studio-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.studio-actions-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---------- 复制给 Agent 分析 ---------- */
+.python-profiler-analyze,
+.python-memory-analyze {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 55%, transparent);
+  border-radius: 4px;
+  color: var(--vscode-charts-blue, #3794ff);
+  background-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 12%, transparent);
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.python-profiler-analyze:hover:not(:disabled),
+.python-memory-analyze:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 22%, transparent);
+}
+
+.python-profiler-analyze:disabled,
+.python-memory-analyze:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.python-profiler-save-report + .python-profiler-analyze,
+.python-memory-save-report + .python-memory-analyze {
+  margin-left: 6px;
+}
+
+.python-profiler-notice,
+.python-memory-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 10px;
+  color: var(--vscode-charts-green, #4ec9b0);
+}
+
+/* Python 性能 + 内存 合并页签 */
+.debug-tool-page-content--python-pair {
+  max-width: none;
+  padding: 0;
+}
+
+.python-combined {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.python-combined-switch {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.28));
+}
+
+.python-combined-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, inherit);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.python-combined-switch button:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+  color: var(--vscode-foreground, inherit);
+}
+
+.python-combined-switch button.active {
+  border-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 60%, transparent);
+  background: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 18%, transparent);
+  color: var(--vscode-foreground, inherit);
+  font-weight: 600;
+}
+
+.python-combined-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, inherit);
+}
+
+.python-combined-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+@media (max-width: 520px) {
+  .python-combined-hint {
+    display: none;
+  }
 }

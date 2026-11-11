@@ -347,8 +347,8 @@ function App() {
         <button 
           type="button"
           className="btn-primary btn-debug" 
-          onClick={() => vscode.postMessage({ type: 'openPerfMonitor' })}
-          title={t.perfMonitorTab}
+          onClick={() => vscode.postMessage({ type: 'openGameDebugger' })}
+          title={t.studioTitle}
         >
           <span className="codicon codicon-graph"></span>
         </button>

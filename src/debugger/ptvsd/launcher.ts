@@ -258,7 +258,8 @@ export async function launchPtvsdDebugSession(
             name: `Minecraft Debug (Port: ${session.debugPort})`,
             shellPath: mcdkPath,
             cwd: workspaceFolder.uri.fsPath,
-            env: env
+            env: env,
+            isTransient: true
         });
     } catch (error) {
         if (bridgeLaunch) {
@@ -399,7 +400,8 @@ export async function launchNewInstance(
             name: terminalName,
             shellPath: mcdkPath,
             cwd: workspaceFolder.uri.fsPath,
-            env: env
+            env: env,
+            isTransient: true
         });
     } catch (error) {
         if (bridgeLaunch) {
