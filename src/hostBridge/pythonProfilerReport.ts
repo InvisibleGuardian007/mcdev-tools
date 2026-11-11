@@ -60,9 +60,17 @@ function renderMarkdown(
     context: PythonProfilerReportContext,
     result: PythonProfilerResult
 ): string {
-    const functions = result.functions.slice().sort((left, right) => right.totalTime - left.totalTime);
-    const byId = new Map(result.functions.map(item => [item.id, item]));
-    const calls = result.calls.slice().sort((left, right) => right.totalTime - left.totalTime);
+    // 默认只看 mod 自己的函数；引擎 / 原版函数单独归到末尾小节
+    const projectFunctions = result.functions.filter(item => item.isProject !== false);
+    const engineFunctions = result.functions
+        .filter(item => item.isProject === false)
+        .sort((left, right) => right.totalTime - left.totalTime);
+    const functions = projectFunctions.slice().sort((left, right) => right.totalTime - left.totalTime);
+    const byId = new Map(projectFunctions.map(item => [item.id, item]));
+    const calls = result.calls
+        .filter(item => byId.has(item.callerId) && byId.has(item.calleeId))
+        .slice()
+        .sort((left, right) => right.totalTime - left.totalTime);
     const lines = [
         '# Python Performance Profile',
         '',
@@ -72,6 +80,7 @@ function renderMarkdown(
         `- Duration: ${formatSeconds(result.elapsedSeconds)}`,
         `- World: ${context.worldName || 'unknown'}`,
         `- Project functions: ${result.totalFunctions}`,
+        `- Engine functions (collapsed in panel): ${result.engineFunctions}`,
         `- Payload truncated: ${result.truncated ? 'yes' : 'no'}`,
         '',
         '## Hot Functions',
@@ -85,7 +94,7 @@ function renderMarkdown(
     });
     // 按「类 / 模块」聚合，回答「到底是哪个类慢」——cProfile 的方法名形如 ClassName.method
     const owners = new Map<string, { functions: Set<number>; calls: number; selfTime: number; totalTime: number }>();
-    for (const item of result.functions) {
+    for (const item of projectFunctions) {
         const key = formatOwner(item);
         let acc = owners.get(key);
         if (!acc) {
@@ -123,6 +132,18 @@ function renderMarkdown(
             lines.push(`| ${md(`${caller.name} [${formatContext(caller)}]`)} | ${md(`${callee.name} [${formatContext(callee)}]`)} | ${call.calls} | ${formatSeconds(call.selfTime, call.calls, result.clock)} | ${formatSeconds(call.totalTime, call.calls, result.clock)} |`);
         }
     }
+    if (engineFunctions.length > 0) {
+        lines.push(
+            '',
+            '## Engine / Vanilla Functions (collapsed in panel)',
+            '',
+            '| # | Function | Location | Calls | Self | Total |',
+            '| -: | --- | --- | ---: | ---: | ---: |'
+        );
+        engineFunctions.slice(0, 12).forEach((item, index) => {
+            lines.push(`| ${index + 1} | ${md(item.name)} | ${md(formatLocation(item.module, item.line))} | ${item.calls} | ${formatSeconds(item.selfTime, item.calls, result.clock)} | ${formatSeconds(item.totalTime, item.calls, result.clock)} |`);
+        });
+    }
     lines.push(
         '',
         '## Interpretation Notes',
@@ -140,7 +161,10 @@ function renderSvg(
     context: PythonProfilerReportContext,
     result: PythonProfilerResult
 ): string {
-    const functions = result.functions.slice().sort((left, right) => right.totalTime - left.totalTime).slice(0, 60);
+    const functions = result.functions
+        .filter(item => item.isProject !== false)
+        .sort((left, right) => right.totalTime - left.totalTime)
+        .slice(0, 60);
     const width = 1400;
     const left = 420;
     const right = 92;

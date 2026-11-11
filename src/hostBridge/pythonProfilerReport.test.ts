@@ -16,10 +16,12 @@ test('Python profiler writes SVG and AI-readable Markdown under .mcdev', async (
         clock: 'CPU',
         elapsedSeconds: 5,
         totalFunctions: 2,
+        engineFunctions: 1,
         truncated: false,
         functions: [
-            { id: 0, target: 'client', module: 'demo/main.py', line: 10, name: 'tick', calls: 2, actualCalls: 2, selfTime: 0, totalTime: 0.8, contextId: 1, contextName: 'MainThread' },
-            { id: 1, target: 'client', module: 'demo/work.py', line: 4, name: 'work', calls: 4, actualCalls: 4, selfTime: 0.4, totalTime: 0.5, contextId: 1, contextName: 'MainThread' }
+            { id: 0, target: 'client', module: 'demo/main.py', line: 10, name: 'tick', calls: 2, actualCalls: 2, selfTime: 0, totalTime: 0.8, contextId: 1, contextName: 'MainThread', isProject: true },
+            { id: 1, target: 'client', module: 'demo/work.py', line: 4, name: 'work', calls: 4, actualCalls: 4, selfTime: 0.4, totalTime: 0.5, contextId: 1, contextName: 'MainThread', isProject: true },
+            { id: 2, target: 'client', module: 'mod/server/extraServerApi.py', line: 1, name: 'GetEngineCompFactory', calls: 9, actualCalls: 9, selfTime: 0.9, totalTime: 1.4, contextId: 1, contextName: 'MainThread', isProject: false }
         ],
         calls: [{ callerId: 0, calleeId: 1, calls: 4, selfTime: 0.4, totalTime: 0.5 }]
     });

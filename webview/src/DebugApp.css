@@ -1119,6 +1119,51 @@ body[data-view="studio"] #root {
   font-weight: 600;
 }
 
+.python-profiler-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.python-profiler-scope:hover:not(:disabled),
+.python-profiler-scope:focus-visible {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  outline: none;
+}
+
+.python-profiler-scope.active {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+}
+
+.python-profiler-scope:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.python-profiler-scope .codicon {
+  font-size: 11px;
+}
+
+.python-profiler-scope small {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.python-profiler-scope + .python-profiler-navigation-hint {
+  margin-left: 8px;
+}
+
 .python-profiler-navigation-hint {
   margin-left: auto;
   overflow: hidden;

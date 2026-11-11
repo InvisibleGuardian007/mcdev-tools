@@ -392,12 +392,20 @@ const PythonProfilerResults = memo(function PythonProfilerResults({
 }) {
   const [selectedFunctionId, setSelectedFunctionId] = useState<number>();
   const [functionsPaneWidth, setFunctionsPaneWidth] = useState(60);
+  const [includeEngine, setIncludeEngine] = useState(false);
   const resultsLayout = useRef<HTMLDivElement>(null);
   const resizingFunctionsPane = useRef(false);
-  const functions = useMemo(
-    () => result.functions.slice().sort((left, right) => right.totalTime - left.totalTime),
+  const engineCount = useMemo(
+    () => result.functions.filter(item => item.isProject === false).length,
     [result]
   );
+  // 默认只列 mod 自己的函数，引擎 / 原版函数由开关显式打开
+  const functions = useMemo(() => {
+    const scoped = includeEngine
+      ? result.functions
+      : result.functions.filter(item => item.isProject !== false);
+    return scoped.slice().sort((left, right) => right.totalTime - left.totalTime);
+  }, [includeEngine, result]);
   const maximumTotalTime = Math.max(0, ...functions.map(item => item.totalTime));
   useEffect(() => {
     if (!functions.some(item => item.id === selectedFunctionId)) {
@@ -449,6 +457,18 @@ const PythonProfilerResults = memo(function PythonProfilerResults({
       <section className="python-profiler-functions" aria-label={t.pythonProfilerHotFunctions}>
         <header>
           <h2>{t.pythonProfilerHotFunctions}</h2>
+          <button
+            type="button"
+            className={`python-profiler-scope${includeEngine ? ' active' : ''}`}
+            aria-pressed={includeEngine}
+            disabled={engineCount === 0}
+            title={engineCount > 0 ? t.pythonProfilerScopeHint : t.pythonProfilerScopeEmpty}
+            onClick={() => setIncludeEngine(value => !value)}
+          >
+            <span className="codicon codicon-filter" aria-hidden="true" />
+            <span>{includeEngine ? t.pythonProfilerScopeAll : t.pythonProfilerScopeMod}</span>
+            <small>{engineCount}</small>
+          </button>
           <span className="python-profiler-navigation-hint">{t.pythonProfilerDoubleClickHint}</span>
         </header>
         <div className="python-profiler-table-header" aria-hidden="true">

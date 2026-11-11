@@ -261,6 +261,10 @@ export interface I18nText {
   pythonProfilerUnavailable: string;
   pythonProfilerHotFunctions: string;
   pythonProfilerDoubleClickHint: string;
+  pythonProfilerScopeMod: string;
+  pythonProfilerScopeAll: string;
+  pythonProfilerScopeHint: string;
+  pythonProfilerScopeEmpty: string;
   pythonProfilerFunction: string;
   pythonProfilerCalls: string;
   pythonProfilerDistribution: string;
@@ -658,6 +662,11 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerUnavailable: 'Python profiling is unavailable for this session',
     pythonProfilerHotFunctions: 'Hot Functions',
     pythonProfilerDoubleClickHint: 'Double-click a function to open its source',
+    pythonProfilerScopeMod: 'Mod functions only',
+    pythonProfilerScopeAll: 'Show engine functions',
+    pythonProfilerScopeHint:
+        'Mod functions are shown by default. Click to also list engine / vanilla functions captured in the same profile.',
+    pythonProfilerScopeEmpty: 'This profile did not capture engine / vanilla functions.',
     pythonProfilerFunction: 'Function',
     pythonProfilerCalls: 'Calls',
     pythonProfilerDistribution: 'Time Distribution',
@@ -1054,6 +1063,10 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerUnavailable: '当前会话无法使用 Python 性能分析',
     pythonProfilerHotFunctions: '热点函数',
     pythonProfilerDoubleClickHint: '双击函数可跳转到代码',
+    pythonProfilerScopeMod: '仅 mod 函数',
+    pythonProfilerScopeAll: '含原版函数',
+    pythonProfilerScopeHint: '默认只看 mod 自己的函数，点击可同时列出本次采集到的引擎 / 原版函数。',
+    pythonProfilerScopeEmpty: '本次采集没有捕获到引擎 / 原版函数。',
     pythonProfilerFunction: '函数',
     pythonProfilerCalls: '调用',
     pythonProfilerDistribution: '耗时分布',

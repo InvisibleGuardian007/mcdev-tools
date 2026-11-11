@@ -20,6 +20,8 @@ export interface PythonProfilerFunction {
     totalTime: number;
     contextId: number;
     contextName: string;
+    /** true = 属于当前 mod 的脚本；false = 引擎 / 原版函数 */
+    isProject: boolean;
 }
 
 export interface PythonProfilerCall {
@@ -34,12 +36,16 @@ export interface PythonProfilerResult {
     clock: PythonProfilerClock;
     elapsedSeconds: number;
     totalFunctions: number;
+    /** 采集到的引擎（原版）函数数量，UI 默认折叠 */
+    engineFunctions: number;
     truncated: boolean;
     functions: PythonProfilerFunction[];
     calls: PythonProfilerCall[];
 }
 
 const MAX_FUNCTIONS = 160;
+/** 引擎（原版）函数单独限流：默认折叠，展开时才看得到 */
+const MAX_ENGINE_FUNCTIONS = 120;
 const MAX_CALLS = 480;
 
 export function buildPythonProfilerStartCode(options: PythonProfilerStartOptions): string {
@@ -131,18 +137,22 @@ export function buildPythonProfilerCollectCode(target: PythonProfilerTarget): st
         ' _mcdev_pp_all=[]',
         ' for _mcdev_pp_side,_mcdev_pp_stats,_mcdev_pp_scripts in _mcdev_pp_sources:',
         '  for _mcdev_pp_stat in _mcdev_pp_stats:',
+        "   if (_mcdev_pp_stat.name or '').startswith('_mcdev_pp_'): continue",
         "   _mcdev_pp_module=_mcdev_pp_stat.module or ''",
         "   _mcdev_pp_parts=set(_mcdev_pp_module.replace('\\\\','/').split('/'))",
         "   _mcdev_pp_project=any(_mcdev_pp_name in _mcdev_pp_parts or _mcdev_pp_module==_mcdev_pp_name or _mcdev_pp_module.startswith(_mcdev_pp_name+'.') for _mcdev_pp_name in _mcdev_pp_scripts)",
-        "   if _mcdev_pp_project and not _mcdev_pp_stat.name.startswith('_mcdev_pp_'): _mcdev_pp_all.append((_mcdev_pp_side,_mcdev_pp_stat))",
+        '   _mcdev_pp_all.append((_mcdev_pp_side,_mcdev_pp_stat,1 if _mcdev_pp_project else 0))',
         ' _mcdev_pp_all.sort(key=lambda _mcdev_pp_item:_mcdev_pp_item[1].ttot,reverse=True)',
-        ` _mcdev_pp_keep=_mcdev_pp_all[:${MAX_FUNCTIONS}]`,
-        ' _mcdev_pp_ids=dict(((_mcdev_pp_side,_mcdev_pp_stat.index),_mcdev_pp_pos) for _mcdev_pp_pos,(_mcdev_pp_side,_mcdev_pp_stat) in enumerate(_mcdev_pp_keep))',
+        ` _mcdev_pp_keep=[_mcdev_pp_mod for _mcdev_pp_mod in _mcdev_pp_all if _mcdev_pp_mod[2]][:${MAX_FUNCTIONS}]`,
+        ` _mcdev_pp_keep+=[_mcdev_pp_mod for _mcdev_pp_mod in _mcdev_pp_all if not _mcdev_pp_mod[2]][:${MAX_ENGINE_FUNCTIONS}]`,
+        ' _mcdev_pp_ids=dict(((item[0],item[1].index),pos) for pos,item in enumerate(_mcdev_pp_keep))',
         ' _mcdev_pp_nodes=[]',
-        ' for _mcdev_pp_pos,(_mcdev_pp_side,_mcdev_pp_stat) in enumerate(_mcdev_pp_keep):',
-        "  _mcdev_pp_nodes.append([_mcdev_pp_pos,_mcdev_pp_stat.module or '',int(_mcdev_pp_stat.lineno or 0),_mcdev_pp_stat.name or '',int(_mcdev_pp_stat.ncall or 0),int(_mcdev_pp_stat.nactualcall or 0),float(_mcdev_pp_stat.tsub or 0),float(_mcdev_pp_stat.ttot or 0),int(_mcdev_pp_stat.ctx_id or 0),_mcdev_pp_stat.ctx_name or '',_mcdev_pp_side])",
+        ' for _mcdev_pp_pos,_mcdev_pp_item in enumerate(_mcdev_pp_keep):',
+        '  _mcdev_pp_side,_mcdev_pp_stat,_mcdev_pp_project=_mcdev_pp_item',
+        "  _mcdev_pp_nodes.append([_mcdev_pp_pos,_mcdev_pp_stat.module or '',int(_mcdev_pp_stat.lineno or 0),_mcdev_pp_stat.name or '',int(_mcdev_pp_stat.ncall or 0),int(_mcdev_pp_stat.nactualcall or 0),float(_mcdev_pp_stat.tsub or 0),float(_mcdev_pp_stat.ttot or 0),int(_mcdev_pp_stat.ctx_id or 0),_mcdev_pp_stat.ctx_name or '',_mcdev_pp_side,int(_mcdev_pp_project)])",
         ' _mcdev_pp_edges=[]',
-        ' for _mcdev_pp_side,_mcdev_pp_parent in _mcdev_pp_keep:',
+        ' for _mcdev_pp_item in _mcdev_pp_keep:',
+        '  _mcdev_pp_side,_mcdev_pp_parent,_mcdev_pp_project=_mcdev_pp_item',
         '  for _mcdev_pp_child in _mcdev_pp_parent.children:',
         '   _mcdev_pp_child_key=(_mcdev_pp_side,_mcdev_pp_child.index)',
         '   if _mcdev_pp_child_key in _mcdev_pp_ids:',
@@ -150,7 +160,7 @@ export function buildPythonProfilerCollectCode(target: PythonProfilerTarget): st
         `    if len(_mcdev_pp_edges)>=${MAX_CALLS}: break`,
         `  if len(_mcdev_pp_edges)>=${MAX_CALLS}: break`,
         " _mcdev_pp_end=globals().get('_mcdev_pp_stopped') or time.time()",
-        " _result={'ok':True,'clock':globals().get('_mcdev_pp_clock','CPU'),'elapsed':max(0,_mcdev_pp_end-globals().get('_mcdev_pp_started',_mcdev_pp_end)),'total':len(_mcdev_pp_all),'truncated':len(_mcdev_pp_all)>len(_mcdev_pp_keep),'targets':list(_mcdev_pp_contexts.keys()),'nodes':_mcdev_pp_nodes,'edges':_mcdev_pp_edges}",
+        " _result={'ok':True,'clock':globals().get('_mcdev_pp_clock','CPU'),'elapsed':max(0,_mcdev_pp_end-globals().get('_mcdev_pp_started',_mcdev_pp_end)),'total':len(_mcdev_pp_all),'projectTotal':len([_mcdev_pp_mod for _mcdev_pp_mod in _mcdev_pp_all if _mcdev_pp_mod[2]]),'engineTotal':len([_mcdev_pp_mod for _mcdev_pp_mod in _mcdev_pp_all if not _mcdev_pp_mod[2]]),'truncated':len(_mcdev_pp_all)>len(_mcdev_pp_keep),'targets':list(_mcdev_pp_contexts.keys()),'nodes':_mcdev_pp_nodes,'edges':_mcdev_pp_edges}",
         ' yappi.clear_stats()',
         " globals()['_mcdev_pp_owned']=False",
         " globals()['_mcdev_pp_timer']=None",
@@ -203,7 +213,11 @@ export function parsePythonProfilerResult(
             throw new Error('Python profiler could not distinguish client and server thread contexts');
         }
     }
-    const functions = nodes.slice(0, MAX_FUNCTIONS).map(value => parseFunctionRow(value, target)).filter(isDefined);
+    const functions = nodes
+        .slice(0, MAX_FUNCTIONS + MAX_ENGINE_FUNCTIONS)
+        .map(value => parseFunctionRow(value, target))
+        .filter(isDefined);
+    const projectCaptured = functions.filter(item => item.isProject).length;
     const functionsById = new Map(functions.map(item => [item.id, item]));
     const calls = edges.slice(0, MAX_CALLS).map(parseCallRow).filter(isDefined).filter(item => (
         functionsById.has(item.callerId)
@@ -213,7 +227,8 @@ export function parsePythonProfilerResult(
     return {
         clock,
         elapsedSeconds: finiteNumber(record.elapsed),
-        totalFunctions: Math.max(functions.length, finiteInteger(record.total)),
+        totalFunctions: Math.max(projectCaptured, finiteInteger(record.projectTotal)),
+        engineFunctions: Math.max(functions.length - projectCaptured, finiteInteger(record.engineTotal)),
         truncated: record.truncated === true,
         functions,
         calls
@@ -251,7 +266,9 @@ function parseFunctionRow(value: unknown, fallbackTarget: PythonProfilerTarget):
         selfTime: finiteNumber(value[6]),
         totalTime: finiteNumber(value[7]),
         contextId: finiteInteger(value[8]),
-        contextName: typeof value[9] === 'string' ? value[9].slice(0, 512) : ''
+        contextName: typeof value[9] === 'string' ? value[9].slice(0, 512) : '',
+        // 旧版载荷没有第 12 位标记，按 mod 函数处理，避免默认视图变空
+        isProject: value.length > 11 ? Boolean(value[11]) : true
     };
 }
 
