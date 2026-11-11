@@ -590,8 +590,11 @@ function ControlGroup({ label, hint, children }: { label: string; hint?: string;
       <span>
         {label}
         {hint && (
-          <span className="python-profiler-hint" role="img" aria-label={hint} title={hint} tabIndex={0}>
-            <span className="codicon codicon-question" />
+          <span className="python-profiler-hint" role="img" aria-label={hint} tabIndex={0}>
+            <span className="codicon codicon-question" aria-hidden="true" />
+            <span className="python-profiler-hint-tip" role="tooltip">
+              {hint}
+            </span>
           </span>
         )}
       </span>
