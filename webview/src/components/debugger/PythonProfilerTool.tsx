@@ -7,6 +7,7 @@ import {
   PythonProfilerCompletedState,
   PythonProfilerClock,
   PythonProfilerFunction,
+  PythonProfilerHistoryEntry,
   PythonProfilerTarget,
   PythonProfilerTargetState,
 } from '../../types';
@@ -31,6 +32,12 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<PythonProfilerHistoryEntry[]>([]);
+  const [historyCurrentId, setHistoryCurrentId] = useState<string>();
+  const [compareBaseId, setCompareBaseId] = useState('');
+  const [compareHeadId, setCompareHeadId] = useState('');
+  const [comparison, setComparison] = useState<{ summary: string; copied: boolean }>();
   const [, setClockTick] = useState(0);
   const contextKey = session ? `${session.id}:${session.connectionGeneration}` : '';
   const targetState = states[target];
@@ -47,6 +54,11 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
     setStates({});
     setPending(false);
     setError(undefined);
+    setHistory([]);
+    setHistoryCurrentId(undefined);
+    setComparison(undefined);
+    setCompareBaseId('');
+    setCompareHeadId('');
     if (!session) {
       return;
     }
@@ -105,6 +117,33 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
       } else if (message.type === 'pythonProfilerAnalyzeFailed') {
         setPending(false);
         setError(typeof message.message === 'string' ? message.message : t.hostBridgeRequestFailed);
+      } else if (message.type === 'pythonProfilerHistory' && Array.isArray(message.entries)) {
+        const entries = message.entries as PythonProfilerHistoryEntry[];
+        const currentId = typeof message.currentId === 'string' ? message.currentId : undefined;
+        setHistory(entries);
+        setHistoryCurrentId(currentId);
+        const fallbackHead = currentId && entries.some(entry => entry.id === currentId)
+          ? currentId
+          : entries[0]?.id;
+        setCompareHeadId(previous => (
+          previous && entries.some(entry => entry.id === previous) ? previous : fallbackHead ?? ''
+        ));
+        setCompareBaseId(previous => {
+          if (previous && entries.some(entry => entry.id === previous) && previous !== fallbackHead) {
+            return previous;
+          }
+          return entries.find(entry => entry.id !== fallbackHead)?.id ?? '';
+        });
+      } else if (message.type === 'pythonProfilerCompared') {
+        setPending(false);
+        setError(undefined);
+        setComparison({
+          summary: typeof message.summary === 'string' ? message.summary : '',
+          copied: message.copied !== false,
+        });
+        setNotice(message.copied === false
+          ? t.pythonProfilerCompareCopyFallback
+          : t.pythonProfilerCompared);
       }
     };
     window.addEventListener('message', onMessage);
@@ -164,6 +203,45 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
       target,
     });
   };
+
+  const requestHistory = () => {
+    if (!session) {
+      return;
+    }
+    vscode.postMessage({
+      type: 'pythonProfilerHistory',
+      requestId: createRequestId(),
+      sessionId: session.id,
+      connectionGeneration: session.connectionGeneration,
+      target,
+    });
+  };
+
+  const compareCaptures = () => {
+    if (!session || pending || !compareBaseId || !compareHeadId || compareBaseId === compareHeadId) {
+      return;
+    }
+    setPending(true);
+    setError(undefined);
+    setNotice(undefined);
+    vscode.postMessage({
+      type: 'pythonProfilerCompare',
+      requestId: createRequestId(),
+      sessionId: session.id,
+      connectionGeneration: session.connectionGeneration,
+      target,
+      baseId: compareBaseId,
+      headId: compareHeadId,
+    });
+  };
+
+  // 打开历史面板、切换会话或产生新采集时刷新列表
+  useEffect(() => {
+    if (!showHistory || !session) {
+      return;
+    }
+    requestHistory();
+  }, [showHistory, contextKey, target, completed?.capturedAt]);
 
   const analyzeWithAgent = () => {
     if (!session || pending || !completed?.result) {
@@ -339,6 +417,17 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
             <span>{t.pythonProfilerAnalyze}</span>
           </button>
         )}
+        <button
+          type="button"
+          className={`python-profiler-history-toggle${showHistory ? ' active' : ''}`}
+          aria-pressed={showHistory}
+          onClick={() => setShowHistory(value => !value)}
+          title={t.pythonProfilerHistoryHint}
+        >
+          <span className="codicon codicon-history" aria-hidden="true" />
+          <span>{t.pythonProfilerHistory}</span>
+          {history.length > 0 && <small>{history.length}</small>}
+        </button>
         {completed?.report && (
           <div className="python-profiler-report-actions">
             <button type="button" onClick={() => reportAction('pythonProfilerOpenReport', 'markdown')} title={t.pythonProfilerOpenMarkdown}>
@@ -366,6 +455,82 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
           <span className="codicon codicon-check" />
           <span>{notice}</span>
         </div>
+      )}
+
+      {showHistory && (
+        <section className="python-profiler-history" aria-label={t.pythonProfilerHistory}>
+          <header>
+            <h2>{t.pythonProfilerHistory}<small>{history.length}</small></h2>
+            <span className="python-profiler-history-hint">{t.pythonProfilerHistoryHint}</span>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={requestHistory}
+              title={t.pythonProfilerHistoryRefresh}
+            >
+              <span className="codicon codicon-refresh" aria-hidden="true" />
+            </button>
+          </header>
+          {history.length === 0 ? (
+            <p className="python-profiler-history-empty">{t.pythonProfilerHistoryEmpty}</p>
+          ) : (
+            <ul className="python-profiler-history-list">
+              {history.map(entry => (
+                <li key={entry.id}>
+                  <span className="python-profiler-history-time">{formatHistoryTime(entry.capturedAt)}</span>
+                  <span className="python-profiler-history-meta">
+                    {entry.target}/{entry.clock} · {formatTime(entry.elapsedSeconds)} · {entry.functionCount} fn
+                    {entry.worldName ? ` · ${entry.worldName}` : ''}
+                  </span>
+                  <span className="python-profiler-history-top" title={historyTopFunction(entry)}>
+                    {historyTopFunction(entry)}
+                  </span>
+                  {entry.id === historyCurrentId && (
+                    <em className="python-profiler-history-current">{t.pythonProfilerHistoryCurrent}</em>
+                  )}
+                  <span className="python-profiler-history-chips">
+                    <button
+                      type="button"
+                      className={entry.id === compareBaseId ? 'active' : ''}
+                      aria-pressed={entry.id === compareBaseId}
+                      title={t.pythonProfilerCompareBase}
+                      onClick={() => setCompareBaseId(entry.id)}
+                    >A</button>
+                    <button
+                      type="button"
+                      className={entry.id === compareHeadId ? 'active' : ''}
+                      aria-pressed={entry.id === compareHeadId}
+                      title={t.pythonProfilerCompareHead}
+                      onClick={() => setCompareHeadId(entry.id)}
+                    >B</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <footer>
+            <span className="python-profiler-history-selection">
+              <strong>A</strong> {historyLabel(history.find(item => item.id === compareBaseId))}
+              <span className="codicon codicon-arrow-right" aria-hidden="true" />
+              <strong>B</strong> {historyLabel(history.find(item => item.id === compareHeadId))}
+            </span>
+            <button
+              type="button"
+              className="python-profiler-compare"
+              disabled={pending || !compareBaseId || !compareHeadId || compareBaseId === compareHeadId}
+              onClick={compareCaptures}
+              title={t.pythonProfilerCompareHint}
+            >
+              <span className="codicon codicon-diff" aria-hidden="true" />
+              <span>{t.pythonProfilerCompare}</span>
+            </button>
+          </footer>
+          {comparison && (
+            <pre className="python-profiler-compare-summary" aria-label={t.pythonProfilerCompare}>
+              {comparison.summary}
+            </pre>
+          )}
+        </section>
       )}
 
       {result ? (
@@ -802,6 +967,28 @@ function timeBarStyle(item: PythonProfilerFunction, maximum: number): CSSPropert
     '--python-profile-total': `${Math.max(0, Math.min(100, item.totalTime / denominator * 100))}%`,
     '--python-profile-self': `${Math.max(0, Math.min(100, item.selfTime / denominator * 100))}%`,
   } as CSSProperties;
+}
+
+function formatHistoryTime(value: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+  const date = new Date(parsed);
+  const pad = (input: number) => String(input).padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function historyLabel(entry: PythonProfilerHistoryEntry | undefined): string {
+  if (!entry) {
+    return '—';
+  }
+  return `${formatHistoryTime(entry.capturedAt)} · ${entry.target}/${entry.clock} · ${formatTime(entry.elapsedSeconds)}`;
+}
+
+function historyTopFunction(entry: PythonProfilerHistoryEntry): string {
+  const top = entry.top;
+  return top ? `${top.module}:${top.line} ${top.name}` : '';
 }
 
 function isTarget(value: unknown): value is PythonProfilerTarget {

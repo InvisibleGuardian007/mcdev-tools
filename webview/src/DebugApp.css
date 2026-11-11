@@ -5344,3 +5344,250 @@ body[data-view="perf-monitor"] #root {
     display: none;
   }
 }
+
+/* 采集历史 / A-B 对比 */
+.python-profiler-status {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  padding: 4px 16px;
+  row-gap: 4px;
+}
+
+.python-profiler-history-toggle {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--vscode-descriptionForeground);
+  background-color: transparent;
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.python-profiler-history-toggle:hover,
+.python-profiler-history-toggle:focus-visible,
+.python-profiler-history-toggle.active {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  outline: none;
+}
+
+.python-profiler-history-toggle.active {
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 16%, transparent);
+}
+
+.python-profiler-history-toggle small {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.python-profiler-history-toggle .codicon {
+  font-size: 11px;
+}
+
+.python-profiler-history {
+  flex: 0 0 auto;
+  max-height: 46%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: color-mix(in srgb, var(--vscode-editor-background) 93%, var(--vscode-focusBorder));
+  overflow: hidden;
+}
+
+.python-profiler-history header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.python-profiler-history header h2 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.python-profiler-history header h2 small {
+  font-size: 9px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.python-profiler-history-hint {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-profiler-history header .btn-icon {
+  margin-left: auto;
+}
+
+.python-profiler-history-empty {
+  margin: 0;
+  padding: 6px 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+
+.python-profiler-history-list {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  list-style: none;
+}
+
+.python-profiler-history-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+
+.python-profiler-history-list li:hover {
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+}
+
+.python-profiler-history-time {
+  flex: 0 0 auto;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.python-profiler-history-meta {
+  flex: 0 0 auto;
+}
+
+.python-profiler-history-top {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-profiler-history-current {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--vscode-charts-green, #4ec9b0);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.python-profiler-history-chips {
+  flex: 0 0 auto;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.python-profiler-history-chips button {
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  background-color: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.python-profiler-history-chips button:hover {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.python-profiler-history-chips button.active {
+  border-color: transparent;
+  color: var(--vscode-button-foreground, #fff);
+  background-color: var(--vscode-button-background);
+}
+
+.python-profiler-history footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.python-profiler-history-selection {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.python-profiler-history-selection strong {
+  color: var(--vscode-foreground);
+}
+
+.python-profiler-compare {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.python-profiler-compare:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.python-profiler-compare:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.python-profiler-compare-summary {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  background-color: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 9px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

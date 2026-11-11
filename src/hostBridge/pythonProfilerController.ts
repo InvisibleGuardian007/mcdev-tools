@@ -19,6 +19,14 @@ import {
     PythonProfilerReportFiles,
     writePythonProfilerReport
 } from './pythonProfilerReport';
+import {
+    buildPythonProfilerHistoryEntry,
+    formatPythonProfilerComparison,
+    PythonProfilerHistoryEntry,
+    readPythonProfilerHistory,
+    toHistorySummary,
+    writePythonProfilerHistory
+} from './pythonProfilerHistory';
 import { openPythonProfilerSource } from './pythonProfilerNavigation';
 import { HostBridgeSnapshot } from './types';
 
@@ -42,6 +50,8 @@ interface PythonProfilerCompletedState {
     result: PythonProfilerResult;
     report?: PythonProfilerReportFiles;
     reportError?: string;
+    /** 采集历史里的 id，用于 A/B 对比 */
+    historyId?: string;
 }
 
 const MAX_TIMER_DELAY_MS = 2_000_000_000;
@@ -114,6 +124,20 @@ export class PythonProfilerController implements vscode.Disposable {
                     return true;
                 case 'pythonProfilerOpenFunction':
                     await this.openFunction(key, sessionId, message.functionId);
+                    return true;
+                case 'pythonProfilerHistory':
+                    await this.postHistory(webview, requestId, sessionId, connectionGeneration, target);
+                    return true;
+                case 'pythonProfilerCompare':
+                    await this.compare(
+                        webview,
+                        requestId,
+                        sessionId,
+                        connectionGeneration,
+                        target,
+                        message.baseId,
+                        message.headId
+                    );
                     return true;
             }
         } catch (error) {
@@ -292,12 +316,15 @@ export class PythonProfilerController implements vscode.Disposable {
                 throw error;
             }
             const capturedAt = new Date();
-            this.completed.set(key, {
+            const state: PythonProfilerCompletedState = {
                 target: runtime.target,
                 clock: runtime.clock,
                 capturedAt: capturedAt.toISOString(),
                 result
-            });
+            };
+            this.completed.set(key, state);
+            // 每次采集都落一份历史摘要，否则「采集历史 / 对比」无从下手
+            await this.recordHistory(runtime, state, capturedAt).catch(() => undefined);
             await webview.postMessage({
                 type: 'pythonProfilerResult',
                 sessionId: runtime.sessionId,
@@ -308,6 +335,94 @@ export class PythonProfilerController implements vscode.Disposable {
         } finally {
             this.removeRuntime(runtime);
         }
+    }
+
+    private async recordHistory(
+        runtime: PythonProfilerRuntime,
+        state: PythonProfilerCompletedState,
+        capturedAt: Date
+    ): Promise<void> {
+        const session = this.hostBridgeManager.getSnapshot().sessions.find(item => item.id === runtime.sessionId);
+        if (!session?.projectRoot) {
+            return;
+        }
+        const projectRoot = path.resolve(session.projectRoot);
+        const entry = buildPythonProfilerHistoryEntry({
+            projectRoot,
+            target: state.target,
+            clock: state.clock,
+            worldName: session.worldName || session.worldFolderName,
+            capturedAt
+        }, state.result);
+        state.historyId = await writePythonProfilerHistory(projectRoot, entry);
+    }
+
+    private async readHistory(sessionId: string): Promise<PythonProfilerHistoryEntry[]> {
+        const session = this.hostBridgeManager.getSnapshot().sessions.find(item => item.id === sessionId);
+        if (!session?.projectRoot) {
+            return [];
+        }
+        return readPythonProfilerHistory(path.resolve(session.projectRoot));
+    }
+
+    private async postHistory(
+        webview: vscode.Webview,
+        requestId: string,
+        sessionId: string,
+        connectionGeneration: number,
+        target: PythonProfilerTarget
+    ): Promise<void> {
+        const key = runtimeKey(sessionId, connectionGeneration, target);
+        const entries = await this.readHistory(sessionId);
+        await webview.postMessage({
+            type: 'pythonProfilerHistory',
+            requestId,
+            sessionId,
+            connectionGeneration,
+            target,
+            entries: entries.map(toHistorySummary),
+            currentId: this.completed.get(key)?.historyId
+        });
+    }
+
+    /** 「对比并复制」：把两次采集压成一段极简摘要，直接进剪贴板交给 Agent */
+    private async compare(
+        webview: vscode.Webview,
+        requestId: string,
+        sessionId: string,
+        connectionGeneration: number,
+        target: PythonProfilerTarget,
+        rawBaseId: unknown,
+        rawHeadId: unknown
+    ): Promise<void> {
+        const baseId = boundedString(rawBaseId, 160);
+        const headId = boundedString(rawHeadId, 160);
+        if (!baseId || !headId) {
+            throw new Error('Select two captures to compare');
+        }
+        if (baseId === headId) {
+            throw new Error('Select two different captures to compare');
+        }
+        const entries = await this.readHistory(sessionId);
+        const base = entries.find(item => item.id === baseId);
+        const head = entries.find(item => item.id === headId);
+        if (!base || !head) {
+            throw new Error('The selected capture is no longer available');
+        }
+        const summary = formatPythonProfilerComparison(base, head);
+        const copied = await copyToClipboard(summary);
+        await webview.postMessage({
+            type: 'pythonProfilerCompared',
+            requestId,
+            sessionId,
+            connectionGeneration,
+            target,
+            baseId,
+            headId,
+            summary,
+            summaryLength: summary.length,
+            copied
+        });
     }
 
     private async postState(

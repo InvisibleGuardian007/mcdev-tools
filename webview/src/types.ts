@@ -114,6 +114,8 @@ export interface PythonProfilerFunction {
   totalTime: number;
   contextId: number;
   contextName: string;
+  /** true = 当前 mod 的脚本；false = 引擎 / 原版函数（默认折叠） */
+  isProject?: boolean;
 }
 
 export interface PythonProfilerCall {
@@ -128,9 +130,34 @@ export interface PythonProfilerResult {
   clock: PythonProfilerClock;
   elapsedSeconds: number;
   totalFunctions: number;
+  /** 采集到的引擎（原版）函数数量 */
+  engineFunctions?: number;
   truncated: boolean;
   functions: PythonProfilerFunction[];
   calls: PythonProfilerCall[];
+}
+
+/** 采集历史里保存的最小函数记录 */
+export interface PythonProfilerHistoryFunction {
+  name: string;
+  module: string;
+  line: number;
+  calls: number;
+  selfTime: number;
+  totalTime: number;
+}
+
+export interface PythonProfilerHistoryEntry {
+  id: string;
+  capturedAt: string;
+  target: PythonProfilerTarget;
+  clock: PythonProfilerClock;
+  elapsedSeconds: number;
+  totalCalls: number;
+  functionCount: number;
+  worldName?: string;
+  /** 该次采集最热的 mod 函数，列表里用来一眼分辨 */
+  top?: PythonProfilerHistoryFunction;
 }
 
 export interface PythonProfilerCompletedState {
@@ -143,6 +170,8 @@ export interface PythonProfilerCompletedState {
     svgPath: string;
   };
   reportError?: string;
+  /** 采集历史 id（A/B 对比用） */
+  historyId?: string;
 }
 
 export interface PythonProfilerTargetState {

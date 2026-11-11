@@ -265,6 +265,17 @@ export interface I18nText {
   pythonProfilerScopeAll: string;
   pythonProfilerScopeHint: string;
   pythonProfilerScopeEmpty: string;
+  pythonProfilerHistory: string;
+  pythonProfilerHistoryHint: string;
+  pythonProfilerHistoryRefresh: string;
+  pythonProfilerHistoryEmpty: string;
+  pythonProfilerHistoryCurrent: string;
+  pythonProfilerCompareBase: string;
+  pythonProfilerCompareHead: string;
+  pythonProfilerCompare: string;
+  pythonProfilerCompareHint: string;
+  pythonProfilerCompared: string;
+  pythonProfilerCompareCopyFallback: string;
   pythonProfilerFunction: string;
   pythonProfilerCalls: string;
   pythonProfilerDistribution: string;
@@ -667,6 +678,17 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerScopeHint:
         'Mod functions are shown by default. Click to also list engine / vanilla functions captured in the same profile.',
     pythonProfilerScopeEmpty: 'This profile did not capture engine / vanilla functions.',
+    pythonProfilerHistory: 'Captures',
+    pythonProfilerHistoryHint: 'Pick two captures as A/B; a compact diff is generated and copied for your agent.',
+    pythonProfilerHistoryRefresh: 'Refresh captures',
+    pythonProfilerHistoryEmpty: 'No captures yet. Stopping a profile records one.',
+    pythonProfilerHistoryCurrent: 'current',
+    pythonProfilerCompareBase: 'Set as A (baseline)',
+    pythonProfilerCompareHead: 'Set as B (compare)',
+    pythonProfilerCompare: 'Compare & copy',
+    pythonProfilerCompareHint: 'Summarize A -> B with as few words as possible and copy it',
+    pythonProfilerCompared: 'Diff summary copied - paste it to your agent',
+    pythonProfilerCompareCopyFallback: 'Diff summary generated but copying failed; select and copy it manually',
     pythonProfilerFunction: 'Function',
     pythonProfilerCalls: 'Calls',
     pythonProfilerDistribution: 'Time Distribution',
@@ -1067,6 +1089,17 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerScopeAll: '含原版函数',
     pythonProfilerScopeHint: '默认只看 mod 自己的函数，点击可同时列出本次采集到的引擎 / 原版函数。',
     pythonProfilerScopeEmpty: '本次采集没有捕获到引擎 / 原版函数。',
+    pythonProfilerHistory: '采集历史',
+    pythonProfilerHistoryHint: '选两次采集当 A/B，生成极简对比摘要并自动复制，直接粘给 Agent。',
+    pythonProfilerHistoryRefresh: '刷新采集历史',
+    pythonProfilerHistoryEmpty: '还没有采集记录，停止一次采集后就会记下来。',
+    pythonProfilerHistoryCurrent: '当前',
+    pythonProfilerCompareBase: '设为 A（基线）',
+    pythonProfilerCompareHead: '设为 B（对比）',
+    pythonProfilerCompare: '对比并复制',
+    pythonProfilerCompareHint: '用最少的字说清 A→B 的变化，并复制到剪贴板',
+    pythonProfilerCompared: '对比摘要已复制，可直接粘贴给 Agent',
+    pythonProfilerCompareCopyFallback: '摘要已生成，但自动复制失败，请手动选中复制',
     pythonProfilerFunction: '函数',
     pythonProfilerCalls: '调用',
     pythonProfilerDistribution: '耗时分布',
