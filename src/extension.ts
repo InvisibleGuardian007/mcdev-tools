@@ -4,7 +4,7 @@ import * as path from 'path';
 import { isMinecraftAddonWorkspace } from './utils';
 import { McDevToolsSidebarProvider } from './sidebar';
 import { dynamicLibraryManager } from './native/dynamicLibraryManager';
-import { GameDebuggerPanel, HostBridgeManager, PreparedHostBridgeLaunch } from './hostBridge';
+import { GameDebuggerPanel, HostBridgeManager, PerfMonitorPanel, PreparedHostBridgeLaunch } from './hostBridge';
 import { shutdownAllNativeProfilerCaptures } from './hostBridge/nativeProfilerCapture';
 import { McdevConfigStore } from './config';
 import { 
@@ -28,6 +28,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(hostBridgeManager);
     gameDebuggerPanel = new GameDebuggerPanel(context.extensionUri, hostBridgeManager);
     context.subscriptions.push(gameDebuggerPanel);
+    registerGameDebuggerAutoOpen(context);
+    registerPerfMonitorAutoOpen(context);
 
     // 初始化 ptvsd 持久化存储
     ptvsd.initStorage(context);
@@ -84,7 +86,77 @@ function registerCommands(context: vscode.ExtensionContext): void {
         gameDebuggerPanel?.show();
     });
 
-    context.subscriptions.push(startDebugCmd, panelCmd, runCmd, openGameDebuggerCmd);
+    // 独立性能监测窗口（启动游戏后会自动打开，也可以手动打开）
+    const openPerfMonitorCmd = vscode.commands.registerCommand('mcdev-tools.openPerfMonitor', () => {
+        openPerfMonitor({ autoStart: true });
+    });
+
+    context.subscriptions.push(startDebugCmd, panelCmd, runCmd, openGameDebuggerCmd, openPerfMonitorCmd);
+}
+
+/**
+ * 打开（或聚焦）独立性能监测窗口。
+ */
+function openPerfMonitor(options: { autoStart?: boolean } = {}): void {
+    if (!hostBridgeManager) {
+        return;
+    }
+    PerfMonitorPanel.show(extensionContext.extensionUri, hostBridgeManager, options);
+}
+
+let autoOpenedDebuggerSessionId: string | undefined;
+
+/**
+ * 游戏进入 game_ready 后自动把「游戏调试」整块面板弹成一个独立窗口（默认在侧边打开），
+ * 里面已经包含代码执行、UI 调试、性能监测等页签。
+ * 关掉 mcdev-tools.gameDebugger.autoOpen 即可恢复成手动点按钮打开。
+ */
+function registerGameDebuggerAutoOpen(context: vscode.ExtensionContext): void {
+    if (!hostBridgeManager) {
+        return;
+    }
+    const subscription = hostBridgeManager.onDidChange(snapshot => {
+        if (!vscode.workspace.getConfiguration('mcdev-tools').get<boolean>('gameDebugger.autoOpen', true)) {
+            return;
+        }
+        const readySession = snapshot.sessions.find(
+            session => session.connected && session.state === 'game_ready'
+        );
+        if (!readySession || readySession.id === autoOpenedDebuggerSessionId) {
+            return;
+        }
+        autoOpenedDebuggerSessionId = readySession.id;
+        gameDebuggerPanel?.show();
+    });
+    context.subscriptions.push(subscription);
+}
+
+let autoOpenedPerfSessionId: string | undefined;
+
+/**
+ * 游戏进入 game_ready（Host Bridge 会话连上并确认游戏已就绪）后，自动弹出独立的性能监测窗口，
+ * 省掉「点游戏调试 → 切到性能监测页签」这一步。
+ * 可用 mcdev-tools.perfMonitor.autoOpen / autoStart 两个设置关闭。
+ */
+function registerPerfMonitorAutoOpen(context: vscode.ExtensionContext): void {
+    if (!hostBridgeManager) {
+        return;
+    }
+    const readConfig = () => vscode.workspace.getConfiguration('mcdev-tools');
+    const subscription = hostBridgeManager.onDidChange(snapshot => {
+        if (!readConfig().get<boolean>('perfMonitor.autoOpen', true)) {
+            return;
+        }
+        const readySession = snapshot.sessions.find(
+            session => session.connected && session.state === 'game_ready'
+        );
+        if (!readySession || readySession.id === autoOpenedPerfSessionId) {
+            return;
+        }
+        autoOpenedPerfSessionId = readySession.id;
+        openPerfMonitor({ autoStart: readConfig().get<boolean>('perfMonitor.autoStart', true) });
+    });
+    context.subscriptions.push(subscription);
 }
 
 /**

@@ -1,8 +1,8 @@
 {
-    "name": "mcdev-tools",
+    "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.32",
+    "version": "0.1.38",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -21,6 +21,7 @@
         "onDebugResolve:mcdev-tools",
         "workspaceContains:.mcdev.json",
         "workspaceContains:*/manifest.json",
+        "onCommand:mcdev-tools.openPerfMonitor",
         "onStartupFinished"
     ],
     "keywords": [
@@ -61,6 +62,11 @@
                 "command": "mcdev-tools.openGameDebugger",
                 "title": "MC Dev Tools: 打开游戏调试",
                 "icon": "$(terminal)"
+            },
+            {
+                "command": "mcdev-tools.openPerfMonitor",
+                "title": "MC Dev Tools: 打开性能监测窗口",
+                "icon": "$(graph)"
             }
         ],
         "debuggers": [
@@ -256,6 +262,21 @@
                     "default": "",
                     "description": "可选：mcdk.exe 的路径（留空使用插件内置 bin/native/windows/x64/mcdk.exe 或相对于工作区路径）"
                 },
+                "mcdev-tools.gameDebugger.autoOpen": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "启动游戏后自动弹出「游戏调试」窗口（弹窗内已包含性能监测页签）"
+                },
+                "mcdev-tools.perfMonitor.autoOpen": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "启动游戏后另外弹出一个独立的「性能监测」小窗口（默认关闭，游戏调试弹窗里已有性能监测页签）"
+                },
+                "mcdev-tools.perfMonitor.autoStart": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "自动打开的性能监测窗口是否立即开始采样（关闭时只打开窗口，需手动点「开始采样」）"
+                },
                 "mcdev-tools.enable": {
                     "type": "boolean",
                     "default": false,
@@ -333,6 +354,7 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run compile && npm run compile:webview",
+        "local:install": "npm run build && npx --yes @vscode/vsce@4.1.0 package --out mcdev-tools-local.vsix && code --install-extension mcdev-tools-local.vsix --force",
         "compile": "tsc -p ./",
         "compile:webview": "cd webview && npm run build",
         "watch": "tsc -watch -p ./",
@@ -342,7 +364,7 @@
         "native:build": "cmake --build native/tracy-bridge/build/x64-msvc-release",
         "native:test": "ctest --test-dir native/tracy-bridge/build/x64-msvc-release --output-on-failure",
         "native:install": "cmake --install native/tracy-bridge/build/x64-msvc-release",
-        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js",
+        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js",
         "lint": "eslint src --ext ts"
     },
     "dependencies": {

@@ -331,6 +331,47 @@ export interface I18nText {
   nativeProfilerReveal: string;
   nativeProfilerSaved: string;
   nativeProfilerTruncated: string;
+  perfMonitorTab: string;
+  perfMonitorInterval: string;
+  perfMonitorStart: string;
+  perfMonitorStop: string;
+  perfMonitorReset: string;
+  perfMonitorExportCsv: string;
+  perfMonitorExportJson: string;
+  perfMonitorIdle: string;
+  perfMonitorRunning: string;
+  perfMonitorUnavailable: string;
+  perfMonitorProcess: string;
+  perfMonitorSamples: string;
+  perfMonitorWindow: string;
+  perfMonitorFps: string;
+  perfMonitorCpu: string;
+  perfMonitorMemory: string;
+  perfMonitorCurrent: string;
+  perfMonitorAverage: string;
+  perfMonitorPeak: string;
+  perfMonitorMinimum: string;
+  perfMonitorMaximum: string;
+  perfMonitorLow1: string;
+  perfMonitorGrowth: string;
+  perfMonitorCpuHint: string;
+  perfMonitorFpsHint: string;
+  perfMonitorExported: string;
+  perfMonitorNoSamples: string;
+  perfMonitorChartFps: string;
+  perfMonitorChartCpu: string;
+  perfMonitorChartMemory: string;
+  perfMonitorStartHint: string;
+  perfMonitorResetHint: string;
+  perfMonitorSecond: string;
+  perfMonitorSave: string;
+  perfMonitorSaveHint: string;
+  perfMonitorSaved: string;
+  perfMonitorAnalyze: string;
+  perfMonitorAnalyzeHint: string;
+  perfMonitorAnalyzed: string;
+  perfMonitorAnalyzeFallback: string;
+  perfMonitorHistoryRestored: string;
 }
 
 export const i18n: Record<string, I18nText> = {
@@ -667,6 +708,47 @@ export const i18n: Record<string, I18nText> = {
     nativeProfilerReveal: 'Show saved capture in folder',
     nativeProfilerSaved: 'Capture saved',
     nativeProfilerTruncated: 'Largest zones shown',
+    perfMonitorTab: "Performance Monitor",
+    perfMonitorInterval: "Sample interval",
+    perfMonitorStart: "Start monitoring",
+    perfMonitorStop: "Stop monitoring",
+    perfMonitorReset: "Clear samples",
+    perfMonitorExportCsv: "Export CSV",
+    perfMonitorExportJson: "Export JSON",
+    perfMonitorIdle: "Start monitoring to record frame rate, CPU and memory of the running game",
+    perfMonitorRunning: "Monitoring game performance",
+    perfMonitorUnavailable: "Connect to a running game session to start monitoring",
+    perfMonitorProcess: "Game process",
+    perfMonitorSamples: "Samples",
+    perfMonitorWindow: "Window",
+    perfMonitorFps: "Frame rate",
+    perfMonitorCpu: "CPU usage",
+    perfMonitorMemory: "Working set",
+    perfMonitorCurrent: "Current",
+    perfMonitorAverage: "Average",
+    perfMonitorPeak: "Peak",
+    perfMonitorMinimum: "Min",
+    perfMonitorMaximum: "Max",
+    perfMonitorLow1: "1% low",
+    perfMonitorGrowth: "Growth",
+    perfMonitorCpuHint: "Share of a single CPU core used by the game process",
+    perfMonitorFpsHint: "The game did not expose a frame counter, only CPU and memory are recorded",
+    perfMonitorExported: "Saved",
+    perfMonitorNoSamples: "No samples recorded yet",
+    perfMonitorChartFps: "FPS",
+    perfMonitorChartCpu: "CPU %",
+    perfMonitorChartMemory: "Memory MB",
+    perfMonitorStartHint: "Sampling once per interval; values come from the game process counters",
+    perfMonitorResetHint: "Discard the recorded samples and start from an empty chart",
+    perfMonitorSecond: "s",
+    perfMonitorSave: "Save record",
+    perfMonitorSaveHint: "Write the current samples into .mcdev/perf of the workspace so they survive closing the panel",
+    perfMonitorSaved: "Record saved",
+    perfMonitorAnalyze: "Ask the agent",
+    perfMonitorAnalyzeHint: "Write a Markdown report, copy the question to the clipboard and open the chat",
+    perfMonitorAnalyzed: "Report ready",
+    perfMonitorAnalyzeFallback: "the chat did not open, the question is on the clipboard",
+    perfMonitorHistoryRestored: "Restored the samples recorded earlier in this session",
 
   },
   zh: {
@@ -1002,5 +1084,46 @@ export const i18n: Record<string, I18nText> = {
     nativeProfilerReveal: '在文件夹中显示采样',
     nativeProfilerSaved: '采样已保存',
     nativeProfilerTruncated: '仅显示耗时最高的区间',
+    perfMonitorTab: "性能监测",
+    perfMonitorInterval: "采样间隔",
+    perfMonitorStart: "开始监测",
+    perfMonitorStop: "停止监测",
+    perfMonitorReset: "清空采样",
+    perfMonitorExportCsv: "导出 CSV",
+    perfMonitorExportJson: "导出 JSON",
+    perfMonitorIdle: "开始监测即可记录运行中游戏的帧率、CPU 与内存占用",
+    perfMonitorRunning: "正在监测游戏性能",
+    perfMonitorUnavailable: "连接到运行中的游戏会话后才能开始监测",
+    perfMonitorProcess: "游戏进程",
+    perfMonitorSamples: "采样点",
+    perfMonitorWindow: "时间窗口",
+    perfMonitorFps: "帧率",
+    perfMonitorCpu: "CPU 占用",
+    perfMonitorMemory: "工作集内存",
+    perfMonitorCurrent: "当前",
+    perfMonitorAverage: "平均",
+    perfMonitorPeak: "峰值",
+    perfMonitorMinimum: "最低",
+    perfMonitorMaximum: "最高",
+    perfMonitorLow1: "1% 最低帧",
+    perfMonitorGrowth: "净增",
+    perfMonitorCpuHint: "游戏进程占用单个 CPU 核心的比例，超过 100% 表示多核并行",
+    perfMonitorFpsHint: "游戏没有暴露帧率计数接口，仅记录 CPU 与内存",
+    perfMonitorExported: "已保存",
+    perfMonitorNoSamples: "还没有采样数据",
+    perfMonitorChartFps: "帧率",
+    perfMonitorChartCpu: "CPU %",
+    perfMonitorChartMemory: "内存 MB",
+    perfMonitorStartHint: "每个采样间隔读取一次游戏进程计数器，开销极小",
+    perfMonitorResetHint: "丢弃已记录的采样，从空图表重新开始",
+    perfMonitorSecond: "秒",
+    perfMonitorSave: "保存记录",
+    perfMonitorSaveHint: "把当前采样写进工作区的 .mcdev/perf，关掉面板也不会丢",
+    perfMonitorSaved: "记录已保存",
+    perfMonitorAnalyze: "交给 Agent 分析",
+    perfMonitorAnalyzeHint: "生成 Markdown 报告，把追问放进剪贴板并打开聊天输入框",
+    perfMonitorAnalyzed: "报告已生成",
+    perfMonitorAnalyzeFallback: "聊天窗口没有自动打开，问题文本已复制到剪贴板",
+    perfMonitorHistoryRestored: "已恢复本会话此前记录的采样",
   },
 };

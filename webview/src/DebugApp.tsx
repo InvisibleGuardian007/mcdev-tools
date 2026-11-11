@@ -6,6 +6,7 @@ import { UiDebuggerTool } from './components/debugger/UiDebuggerTool';
 import { PythonProfilerTool } from './components/debugger/PythonProfilerTool';
 import { PythonMemoryProfilerTool } from './components/debugger/PythonMemoryProfilerTool';
 import { NativeProfilerTool } from './components/debugger/NativeProfilerTool';
+import { PerfMonitorTool } from './components/debugger/PerfMonitorTool';
 import { I18nText, i18n } from './i18n';
 import { HostBridgeSessionSummary, HostBridgeSnapshot } from './types';
 import { vscode } from './vscode';
@@ -59,6 +60,12 @@ const DEBUG_TOOLS: DebugToolDefinition[] = [
     icon: 'codicon-dashboard',
     label: t => t.nativeProfilerTab,
     render: ({ session, t }) => <NativeProfilerTool session={session} t={t} />,
+  },
+  {
+    id: 'perf-monitor',
+    icon: 'codicon-graph',
+    label: t => t.perfMonitorTab,
+    render: ({ session, t }) => <PerfMonitorTool session={session} t={t} />,
   },
 ];
 

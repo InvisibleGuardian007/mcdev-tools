@@ -292,3 +292,43 @@ export interface SavedDebugFunction extends DiscoveredDebugFunction {
   target: DebugFunctionTarget;
   argumentConfigs: Record<string, DebugFunctionArgumentConfig>;
 }
+
+export interface PerfMonitorSample {
+  time: number;
+  fps?: number;
+  cpuPercent: number;
+  workingSetBytes: number;
+  pagefileBytes: number;
+}
+
+export interface PerfMonitorFpsStats {
+  current: number;
+  average: number;
+  min: number;
+  max: number;
+  low1: number;
+}
+
+export interface PerfMonitorStats {
+  sampleCount: number;
+  windowSeconds: number;
+  fps?: PerfMonitorFpsStats;
+  cpu: { current: number; average: number; peak: number };
+  memory: { current: number; average: number; peak: number; growth: number };
+}
+
+export interface PerfMonitorState {
+  status: 'idle' | 'running';
+  intervalMs: number;
+  startedAt?: string;
+  pid?: number;
+  pidSource?: 'session' | 'discovered';
+  fpsAvailable: boolean;
+  fpsSource?: string;
+  fpsError?: string;
+  lastError?: string;
+  sampleCount: number;
+  stats: PerfMonitorStats;
+  samples: PerfMonitorSample[];
+  lastUpdated?: string;
+}

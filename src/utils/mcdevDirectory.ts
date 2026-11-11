@@ -4,7 +4,8 @@ import * as path from 'path';
 const GENERATED_IGNORE_RULES = [
     '# Generated MC Dev Tools reports',
     'reviews/',
-    'profiles/'
+    'profiles/',
+    'perf/'
 ];
 
 const pendingInitializations = new Map<string, Promise<string>>();

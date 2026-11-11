@@ -4581,3 +4581,482 @@ body.vscode-high-contrast .ui-runtime-vector input {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Perf monitor ---------- */
+
+.debug-tool-page-content--perf-monitor {
+  max-width: none;
+  padding: 0;
+}
+
+.perf-monitor-workspace {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: auto;
+  padding-bottom: 16px;
+}
+
+.perf-monitor-toolbar {
+  min-width: 0;
+  min-height: 62px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 16px 11px;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
+}
+
+.perf-monitor-interval {
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.perf-monitor-interval > span {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.perf-monitor-interval select {
+  height: var(--control-height);
+  min-width: 92px;
+  padding: 0 8px;
+  border: 1px solid var(--vscode-dropdown-border, var(--panel-border));
+  border-radius: var(--panel-radius);
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  background-color: var(--vscode-dropdown-background, var(--vscode-input-background));
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.perf-monitor-interval select:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.perf-monitor-actions {
+  min-width: max-content;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.perf-monitor-start,
+.perf-monitor-stop,
+.perf-monitor-secondary {
+  height: var(--control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--panel-radius);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.perf-monitor-start {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-background);
+}
+
+.perf-monitor-start:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.perf-monitor-stop {
+  color: var(--vscode-button-foreground);
+  background-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 78%, #1f1f1f);
+}
+
+.perf-monitor-stop:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 92%, #1f1f1f);
+}
+
+.perf-monitor-secondary {
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border-color: var(--panel-border);
+  background-color: var(--vscode-button-secondaryBackground, transparent);
+}
+
+.perf-monitor-secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+/* 「交给 Agent 分析」入口：和普通次要按钮区分开，用强调色描边 */
+.perf-monitor-agent {
+  color: var(--vscode-charts-blue, #3794ff);
+  border-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 55%, transparent);
+  background-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 12%, transparent);
+}
+
+.perf-monitor-agent:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--vscode-charts-blue, #3794ff) 22%, transparent);
+}
+
+.perf-monitor-start:disabled,
+.perf-monitor-stop:disabled,
+.perf-monitor-secondary:disabled,
+.perf-monitor-agent:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.perf-monitor-status {
+  min-width: 0;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+.perf-monitor-status > strong {
+  color: var(--vscode-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.perf-monitor-status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background-color: var(--vscode-descriptionForeground);
+}
+
+.perf-monitor-status.running .perf-monitor-status-dot {
+  background-color: var(--vscode-charts-green, #89d185);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vscode-charts-green, #89d185) 22%, transparent);
+  animation: perf-monitor-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes perf-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.perf-monitor-meta {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin-left: auto;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+}
+
+.perf-monitor-message {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 10px 16px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  font-size: 11px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.perf-monitor-message .codicon {
+  margin-top: 1px;
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.perf-monitor-message.error {
+  border-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 55%, var(--panel-border));
+  color: var(--vscode-errorForeground, #f48771);
+  background-color: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 12%, transparent);
+}
+
+.perf-monitor-message.notice {
+  color: var(--vscode-foreground);
+  background-color: color-mix(in srgb, var(--vscode-charts-green, #89d185) 12%, transparent);
+}
+
+.perf-monitor-message.hint {
+  color: var(--vscode-descriptionForeground);
+  background-color: var(--vscode-editor-inactiveSelectionBackground, transparent);
+}
+
+.perf-monitor-cards {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: 10px;
+  padding: 12px 16px 0;
+}
+
+.perf-monitor-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px 11px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+}
+
+.perf-monitor-card > header {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.perf-monitor-card-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.perf-monitor-card-primary strong {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.perf-monitor-card-primary small {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+
+.perf-monitor-card-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.perf-monitor-card-rows > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perf-monitor-card-rows dt {
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perf-monitor-card-rows dd {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perf-monitor-card-footnote {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.perf-monitor-charts {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 0;
+}
+
+.perf-monitor-chart {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background-color: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+}
+
+.perf-monitor-chart-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perf-monitor-chart-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perf-monitor-chart-title i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 2px;
+}
+
+.perf-monitor-chart-range {
+  margin-left: auto;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.perf-monitor-chart-body {
+  position: relative;
+  min-width: 0;
+  height: 150px;
+  border-radius: 3px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.05)),
+    transparent 65%
+  );
+}
+
+.perf-monitor-chart-body svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.perf-monitor-grid {
+  stroke: var(--vscode-editorIndentGuide-background, rgba(128, 128, 128, 0.22));
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.7;
+}
+
+.perf-monitor-hover-line {
+  stroke: var(--vscode-focusBorder, rgba(200, 200, 200, 0.6));
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.85;
+}
+
+.perf-monitor-tooltip {
+  position: absolute;
+  top: 0;
+  z-index: 4;
+  transform: translate(-50%, -104%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 7px;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 9px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.perf-monitor-tooltip strong {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.perf-monitor-tooltip span {
+  color: var(--vscode-descriptionForeground);
+}
+
+@media (max-width: 620px) {
+  .perf-monitor-actions {
+    margin-left: 0;
+  }
+
+  .perf-monitor-card-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .perf-monitor-chart-body {
+    height: 120px;
+  }
+}
+
+/* 独立性能监测窗口（mcdev-tools.perfMonitor）：单独一屏，只放性能监测工具 */
+body[data-view="perf-monitor"],
+body[data-view="perf-monitor"] #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.perf-window {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 16px;
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+}
+
+.perf-window-session {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+}
+
+.perf-window-session select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 3px 6px;
+  color: var(--vscode-input-foreground);
+  background-color: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+}
+
+.perf-window .perf-monitor-workspace {
+  padding-top: 4px;
+}

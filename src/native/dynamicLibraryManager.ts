@@ -62,6 +62,33 @@ class DynamicLibraryManager {
         return call;
     }
 
+    /**
+     * Runs an operation with the bundled koffi module only, without loading a
+     * native library first. The module is resolved from `koffiDirectory`, which
+     * has to be the folder that ships koffi.node next to the native binaries.
+     */
+    public withKoffi<T>(koffiDirectory: string, operation: (koffi: KoffiModule) => Promise<T> | T): Promise<T> {
+        if (this.disposing) {
+            return Promise.reject(new Error('Native libraries are being unloaded'));
+        }
+
+        const call = Promise.resolve().then(() => {
+            if (this.disposing) {
+                throw new Error('Native libraries are being unloaded');
+            }
+
+            const koffi = this.koffi
+                ?? require(path.join(path.resolve(koffiDirectory), 'koffi.node')) as KoffiModule;
+            this.koffi = koffi;
+
+            return operation(koffi);
+        });
+
+        this.pendingCalls.add(call);
+        void call.finally(() => this.pendingCalls.delete(call)).catch(() => undefined);
+        return call;
+    }
+
     public unloadAll(): Promise<void> {
         if (!this.unloadPromise) {
             this.disposing = true;

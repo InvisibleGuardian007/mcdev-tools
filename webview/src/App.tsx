@@ -27,6 +27,7 @@ function App() {
   const [gameExecutableDiscoverySupported, setGameExecutableDiscoverySupported] = useState(false);
   const [gameExecutableDiscoveryLoaded, setGameExecutableDiscoveryLoaded] = useState(false);
   const [gameExecutablePaths, setGameExecutablePaths] = useState<string[]>([]);
+  const [buildLabel, setBuildLabel] = useState<string>('');
   
   const initializedComponentsRef = useRef<Set<string>>(new Set());
   const initTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,6 +41,9 @@ function App() {
           // 设置语言
           if (msg.language) {
             setLang(msg.language.startsWith('zh') ? 'zh' : 'en');
+          }
+          if (typeof msg.buildLabel === 'string') {
+            setBuildLabel(msg.buildLabel);
           }
           const parsedData = JSON.parse(msg.content || '{}');
           if (typeof msg.gameExecutableDiscoverySupported === 'boolean') {
@@ -340,6 +344,19 @@ function App() {
         >
           <span className="codicon codicon-debug-alt"></span>
         </button>
+        <button 
+          type="button"
+          className="btn-primary btn-debug" 
+          onClick={() => vscode.postMessage({ type: 'openPerfMonitor' })}
+          title={t.perfMonitorTab}
+        >
+          <span className="codicon codicon-graph"></span>
+        </button>
+        {buildLabel && (
+          <span className="build-badge" title={buildLabel}>
+            {buildLabel}
+          </span>
+        )}
       </div>
 
       {/* Mod Directories */}

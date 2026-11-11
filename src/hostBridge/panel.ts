@@ -5,7 +5,7 @@ import {
     DebugFunctionService,
     validateSavedFunction
 } from '../debugFunctions';
-import { getNonce } from '../utils';
+import { buildWebviewPage } from './webviewPage';
 import { HostBridgeManager } from './manager';
 import { LatestOperationQueue } from './latestOperationQueue';
 import { HostBridgeRpcError } from './server';
@@ -13,6 +13,7 @@ import { DisposableLike } from './types';
 import { PythonProfilerController } from './pythonProfilerController';
 import { PythonMemoryProfilerController } from './pythonMemoryProfilerController';
 import { NativeProfilerController } from './nativeProfilerController';
+import { PerfMonitorController } from './perfMonitorController';
 import {
     buildUiDebuggerChildrenCode,
     buildUiDebuggerNodeCode,
@@ -53,6 +54,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
     private pythonProfilerController?: PythonProfilerController;
     private pythonMemoryProfilerController?: PythonMemoryProfilerController;
     private nativeProfilerController?: NativeProfilerController;
+    private perfMonitorController?: PerfMonitorController;
     private releasePromise: Promise<void> = Promise.resolve();
 
     constructor(
@@ -60,16 +62,24 @@ export class GameDebuggerPanel implements vscode.Disposable {
         private readonly hostBridgeManager: HostBridgeManager
     ) {}
 
+    /**
+     * 标题保持简洁，版本号只显示在面板内的构建徽标上，避免每次升级都要刷新标题。
+     */
+    private resolvePanelTitle(): string {
+        return 'MC Dev Tools - 游戏调试';
+    }
+
     public show(): void {
         if (this.panel) {
             this.panel.reveal(this.panel.viewColumn, false);
             return;
         }
 
+        // 弹成独立窗口（默认在活动编辑器旁边），不再挤在编辑器里当普通页签
         const panel = vscode.window.createWebviewPanel(
             'mcdev-tools.gameDebugger',
-            'MC Dev Tools - 游戏调试',
-            vscode.ViewColumn.Active,
+            this.resolvePanelTitle(),
+            { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
             {
                 enableScripts: true,
                 enableFindWidget: true,
@@ -90,6 +100,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
             this.pythonProfilerController?.reconcile(snapshot);
             this.pythonMemoryProfilerController?.reconcile(snapshot);
             this.nativeProfilerController?.reconcile(snapshot);
+            this.perfMonitorController?.reconcile(snapshot);
             void panel.webview.postMessage({ type: 'hostBridgeState', snapshot });
         });
         this.panelDisposeSubscription = panel.onDidDispose(() => this.releasePanel());
@@ -117,9 +128,11 @@ export class GameDebuggerPanel implements vscode.Disposable {
         const pythonProfilerController = this.pythonProfilerController;
         const pythonMemoryProfilerController = this.pythonMemoryProfilerController;
         const nativeProfilerController = this.nativeProfilerController;
+        const perfMonitorController = this.perfMonitorController;
         this.pythonProfilerController = undefined;
         this.pythonMemoryProfilerController = undefined;
         this.nativeProfilerController = undefined;
+        this.perfMonitorController = undefined;
         this.messageSubscription?.dispose();
         this.messageSubscription = undefined;
         this.bridgeSubscription?.dispose();
@@ -136,7 +149,8 @@ export class GameDebuggerPanel implements vscode.Disposable {
             pickerCleanup,
             pythonProfilerController?.disposeAsync(),
             pythonMemoryProfilerController?.disposeAsync(),
-            nativeProfilerController?.disposeAsync()
+            nativeProfilerController?.disposeAsync(),
+            perfMonitorController?.disposeAsync()
         ]).then(() => undefined);
         this.releasePromise = Promise.allSettled([this.releasePromise, cleanup]).then(results => {
             for (const result of results) {
@@ -183,6 +197,14 @@ export class GameDebuggerPanel implements vscode.Disposable {
                 this.hostBridgeManager
             );
             controller.setPanelVisible(this.panel?.visible ?? true);
+            await controller.handleMessage(webview, message);
+            return;
+        }
+        if (typeof message?.type === 'string' && message.type.startsWith('perfMonitor')) {
+            const controller = this.perfMonitorController ??= new PerfMonitorController(
+                this.extensionUri.fsPath,
+                this.hostBridgeManager
+            );
             await controller.handleMessage(webview, message);
             return;
         }
@@ -746,28 +768,10 @@ export class GameDebuggerPanel implements vscode.Disposable {
     }
 
     private getHtml(webview: vscode.Webview): string {
-        const nonce = getNonce();
-        const language = vscode.env.language.startsWith('zh') ? 'zh' : 'en';
-        const webviewPath = vscode.Uri.joinPath(this.extensionUri, 'out', 'webview');
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.css'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'codicons', 'codicon.css'));
-
-        return `<!doctype html>
-<html lang="${language}">
-<head>
-    <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data:;">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MC Dev Tools - Game Debugger</title>
-    <link href="${codiconsUri}" rel="stylesheet" />
-    <link href="${styleUri}" rel="stylesheet" />
-</head>
-<body data-view="game-debugger">
-    <div id="root"></div>
-    <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
-</body>
-</html>`;
+        return buildWebviewPage(webview, this.extensionUri, {
+            title: 'MC Dev Tools - Game Debugger',
+            view: 'game-debugger'
+        });
     }
 }
 

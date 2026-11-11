@@ -2,8 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import DebugApp from './DebugApp';
+import PerfWindowApp from './PerfWindowApp';
 
-const RootApp = document.body.dataset.view === 'game-debugger' ? DebugApp : App;
+const view = document.body.dataset.view;
+const RootApp = view === 'game-debugger' ? DebugApp : view === 'perf-monitor' ? PerfWindowApp : App;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

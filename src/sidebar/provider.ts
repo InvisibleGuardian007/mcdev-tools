@@ -4,11 +4,14 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { getNonce } from '../utils';
 import { ensureMcdevDirectory } from '../utils/mcdevDirectory';
+import { resolveExtensionLabel } from '../utils/buildInfo';
 import { McdevConfigSnapshot, McdevConfigStore } from '../config';
 import {
     getGameExecutablePaths,
     isGameExecutableDiscoverySupported
 } from '../native/gameDiscovery';
+
+// 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
 
 /**
  * 侧边栏 Webview 提供者，用于可视化编辑 .mcdev.json
@@ -126,6 +129,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleOpenReviewReport(msg.path);
             } else if (msg?.type === 'openGameDebugger') {
                 await vscode.commands.executeCommand('mcdev-tools.openGameDebugger');
+            } else if (msg?.type === 'openPerfMonitor') {
+                await vscode.commands.executeCommand('mcdev-tools.openPerfMonitor');
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -522,7 +527,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
             language: options.language,
             needsInitialSave: options.needsInitialSave,
             skinPreviewUri,
-            gameExecutableDiscoverySupported: isGameExecutableDiscoverySupported
+            gameExecutableDiscoverySupported: isGameExecutableDiscoverySupported,
+            buildLabel: resolveExtensionLabel(this._extensionUri.fsPath)
         });
     }
 
