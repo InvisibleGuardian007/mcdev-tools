@@ -232,7 +232,7 @@ export function PythonProfilerTool({ session, t, sync }: PythonProfilerToolProps
             }}
           />
         </ControlGroup>
-        <ControlGroup label={t.pythonProfilerClock}>
+        <ControlGroup label={t.pythonProfilerClock} hint={t.pythonProfilerClockHint}>
           <SegmentedControl
             value={clock}
             options={[
@@ -584,8 +584,20 @@ const PythonProfilerResults = memo(function PythonProfilerResults({
   );
 });
 
-function ControlGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="python-profiler-control-group"><span>{label}</span>{children}</div>;
+function ControlGroup({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="python-profiler-control-group">
+      <span>
+        {label}
+        {hint && (
+          <span className="python-profiler-hint" role="img" aria-label={hint} title={hint} tabIndex={0}>
+            <span className="codicon codicon-question" />
+          </span>
+        )}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 function SegmentedControl({

@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -369,7 +369,7 @@
                 {
                     "id": "mcdev-tools-aux",
                     "title": "MC Dev Tools 调试",
-                    "icon": "./images/icon.svg"
+                    "icon": "./images/perf.svg"
                 }
             ]
         },
@@ -378,7 +378,8 @@
                 {
                     "type": "webview",
                     "id": "mcdev-tools.debugView",
-                    "name": "性能调试"
+                    "name": "性能调试",
+                    "icon": "./images/perf.svg"
                 }
             ],
             "mcdev-tools": [

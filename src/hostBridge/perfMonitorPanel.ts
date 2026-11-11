@@ -24,7 +24,7 @@ export class PerfMonitorPanel implements vscode.Disposable {
         autoStart: boolean
     ) {
         this.controller = new PerfMonitorController(extensionUri.fsPath, hostBridgeManager);
-        panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'icon.png');
+        panel.iconPath = vscode.Uri.joinPath(extensionUri, 'images', 'perf.png');
         panel.webview.html = buildWebviewPage(panel.webview, extensionUri, {
             title: 'MC Dev Tools - 性能监测',
             view: 'perf-monitor',

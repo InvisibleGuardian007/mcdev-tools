@@ -242,6 +242,7 @@ export interface I18nText {
   pythonProfilerTarget: string;
   pythonProfilerAll: string;
   pythonProfilerClock: string;
+  pythonProfilerClockHint: string;
   pythonProfilerCpu: string;
   pythonProfilerWall: string;
   pythonProfilerBelowResolution: string;
@@ -635,6 +636,8 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerTarget: 'Target',
     pythonProfilerAll: 'All',
     pythonProfilerClock: 'Clock',
+    pythonProfilerClockHint:
+      'CPU counts only time this thread actually runs on the CPU (sleeping, waiting on locks or engine replies, and being preempted are excluded), so a multi-threaded total can exceed wall time. WALL counts real elapsed time including all waiting. Close CPU/WALL means real computation — optimize the algorithm or add caching. WALL far above CPU means waiting — go async or call less. For stutter, start with WALL to find the hot path, then switch to CPU to see whether it is real work or waiting.',
     pythonProfilerCpu: 'CPU',
     pythonProfilerWall: 'WALL',
     pythonProfilerBelowResolution: '<1µs',
@@ -1027,6 +1030,8 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerTarget: '采样目标',
     pythonProfilerAll: '全部',
     pythonProfilerClock: '计时方式',
+    pythonProfilerClockHint:
+      'CPU 只统计该线程真正占用 CPU 的时间：sleep、等锁、等引擎回包、被系统抢占都不计入，多线程累加可能超过真实经过时间。WALL 统计真实流逝时间，所有等待都算。两者接近说明代码真在计算，优先优化算法或加缓存；WALL 远大于 CPU 说明在等待，改成异步或减少调用次数。排查卡顿建议先用 WALL 定位热点，再切 CPU 判断是计算还是等待。',
     pythonProfilerCpu: 'CPU',
     pythonProfilerWall: 'WALL',
     pythonProfilerBelowResolution: '<1µs',

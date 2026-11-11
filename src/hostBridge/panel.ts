@@ -127,7 +127,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
                 localResourceRoots: [this.extensionUri]
             }
         );
-        panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'icon.png');
+        panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'perf.png');
         this.attach(createPanelSurface(panel));
         panel.reveal(panel.viewColumn, false);
     }

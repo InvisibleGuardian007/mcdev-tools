@@ -694,6 +694,26 @@ body[data-view="studio"] #root {
   line-height: 1.2;
 }
 
+.python-profiler-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  color: var(--vscode-descriptionForeground);
+  cursor: help;
+  vertical-align: middle;
+}
+
+.python-profiler-hint .codicon {
+  font-size: 11px;
+}
+
+.python-profiler-hint:hover,
+.python-profiler-hint:focus-visible {
+  color: var(--vscode-foreground);
+  outline: none;
+}
+
 .debug-segmented {
   height: 30px;
   display: inline-flex;
