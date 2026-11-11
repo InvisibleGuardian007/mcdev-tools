@@ -123,26 +123,66 @@ function openPerfMonitor(options: { autoStart?: boolean } = {}): void {
 
 let autoOpenedDebuggerSessionId: string | undefined;
 
+let debuggerAutoOpenTimer: ReturnType<typeof setInterval> | undefined;
+
+/** 把「性能调试」停靠视图叫出来：先展开次级侧边栏容器，再聚焦视图本身（未知命令忽略失败）。 */
+function revealGameDebuggerView(): void {
+    const ignore = () => undefined;
+    void vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus').then(ignore, ignore);
+    void vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar').then(ignore, ignore);
+    void vscode.commands.executeCommand('mcdev-tools.debugView.focus').then(ignore, ignore);
+}
+
+function stopDebuggerAutoOpenTimer(): void {
+    if (debuggerAutoOpenTimer) {
+        clearInterval(debuggerAutoOpenTimer);
+        debuggerAutoOpenTimer = undefined;
+    }
+}
+
 /**
- * 按设置打开「游戏调试」面板：默认在编辑器区单开一个页签，也可以改成停靠到次级侧边栏。
+ * 按设置打开「游戏调试」面板：默认停在次级侧边栏，也可以改成在编辑器区单开一个页签。
  */
 function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
     const surface = vscode.workspace.getConfiguration('mcdev-tools').get<string>('gameDebugger.surface', 'auxiliarybar');
     if (surface === 'editor') {
+        stopDebuggerAutoOpenTimer();
         gameDebuggerPanel?.show();
         return;
     }
-    void vscode.commands.executeCommand('mcdev-tools.debugView.focus');
+    revealGameDebuggerView();
     if (!options.fallbackToEditor) {
         return;
     }
-    // 停靠视图有时还没来得及被 VS Code 解析出来（辅助侧边栏被收起/容器被关掉），
-    // 那就退回编辑器页签，保证「自动打开」这件事一定发生。
-    setTimeout(() => {
-        if (!gameDebuggerPanel?.hasSurface) {
-            gameDebuggerPanel?.show();
+    // 自动打开：视图被 VS Code 解析是异步的（次级侧边栏收起 / 刚重载窗口时更慢），
+    // 这里按 500ms 一轮重试 6 轮；期间界面若落在编辑器页签就搬回侧边栏，
+    // 直到视图真的拿不到才退回编辑器页签，保证面板一定能看到。
+    stopDebuggerAutoOpenTimer();
+    let round = 0;
+    debuggerAutoOpenTimer = setInterval(() => {
+        round += 1;
+        const panel = gameDebuggerPanel;
+        if (!panel || panel.surfaceKind === 'view') {
+            stopDebuggerAutoOpenTimer();
+            return;
         }
-    }, 1200);
+        if (panel.surfaceKind === 'panel') {
+            // 已经在编辑器页签：搬回侧边栏；同时继续聚焦视图（视图一被解析就会自动接管）
+            void panel.dockToSidebar();
+            if (round >= 6) {
+                stopDebuggerAutoOpenTimer();
+                return;
+            }
+            revealGameDebuggerView();
+            return;
+        }
+        if (round >= 6) {
+            stopDebuggerAutoOpenTimer();
+            panel.show();
+            return;
+        }
+        revealGameDebuggerView();
+    }, 500);
 }
 
 /**
@@ -402,6 +442,7 @@ async function runMcdk(): Promise<void> {
 }
 
 export async function deactivate(): Promise<void> {
+    stopDebuggerAutoOpenTimer();
     const panel = gameDebuggerPanel;
     const bridgeManager = hostBridgeManager;
     const configStore = mcdevConfigStore;

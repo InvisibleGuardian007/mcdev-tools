@@ -101,6 +101,11 @@ export class GameDebuggerPanel implements vscode.Disposable {
         return this.surface !== undefined;
     }
 
+    /** 当前宿主位置：panel = 编辑器页签，view = 次级侧边栏停靠视图。 */
+    public get surfaceKind(): 'panel' | 'view' | undefined {
+        return this.surface?.kind;
+    }
+
     /** 打开为编辑器页签（当前编辑器组里单开一个标签）。 */
     public show(): void {
         if (this.surface?.kind === 'panel') {
@@ -130,6 +135,25 @@ export class GameDebuggerPanel implements vscode.Disposable {
         panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'perf.png');
         this.attach(createPanelSurface(panel));
         panel.reveal(panel.viewColumn, false);
+    }
+
+    /**
+     * 把界面搬回次级侧边栏。已经在视图里就只把容器叫出来；
+     * 还没解析出视图（lastView 为空）时返回 false，调用方继续重试聚焦。
+     */
+    public async dockToSidebar(): Promise<boolean> {
+        if (this.surface?.kind === 'view') {
+            await vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus');
+            return true;
+        }
+        const view = this.lastView;
+        if (!view) {
+            return false;
+        }
+        await this.releaseSurface();
+        this.resolveWebviewView(view);
+        await vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus');
+        return true;
     }
 
     /** 停靠到次级侧边栏（辅助侧边栏）的视图入口。 */

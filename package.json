@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.51",
+    "version": "0.1.52",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -278,7 +278,7 @@
                         "打开为编辑器页签，可以和文件一起管理，也可以手工拖出成独立窗口"
                     ],
                     "default": "auxiliarybar",
-                    "description": "「性能调试」面板的打开位置（默认停靠在次级侧边栏；面板右上角按钮可随时切换）"
+                    "description": "「性能调试」面板的打开位置（默认停靠在次级侧边栏；面板右上角按钮可随时切换）。游戏启动后的自动打开会始终落在次级侧边栏。"
                 },
                 "mcdev-tools.debugView.style": {
                     "type": "string",
