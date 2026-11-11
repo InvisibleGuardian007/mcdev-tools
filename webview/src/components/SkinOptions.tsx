@@ -3,6 +3,7 @@ import { I18nText } from '../i18n';
 import { useNestedDefaultValues } from '../hooks/useDefaultValues';
 import { McdevData } from '../types';
 import { vscode } from '../vscode';
+import { SectionHeader } from './SectionHeader';
 
 interface Props {
   t: I18nText;
@@ -34,12 +35,7 @@ export const SkinOptions: React.FC<Props> = ({ t, skinInfo, previewUrl, onSkinIn
 
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-person"></span>
-          {t.skinOptions}
-        </span>
-      </div>
+      <SectionHeader id="skin" icon="codicon-person" title={t.skinOptions} />
 
       <div className="checkbox-group">
         <input

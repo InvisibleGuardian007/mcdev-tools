@@ -3,6 +3,7 @@ import { I18nText } from '../i18n';
 import { useNestedDefaultValues } from '../hooks/useDefaultValues';
 import { ColorPicker } from './ColorPicker';
 import { NumberSelect } from './NumberSelect';
+import { SectionHeader } from './SectionHeader';
 
 interface WindowStyleData {
   always_on_top?: boolean;
@@ -51,12 +52,7 @@ export const WindowStyle: React.FC<Props> = ({ t, windowStyle, onWindowStyleChan
 
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-window"></span>
-          {t.windowStyle}
-        </span>
-      </div>
+      <SectionHeader id="window" icon="codicon-window" title={t.windowStyle} />
 
       <div className="checkbox-group">
         <input

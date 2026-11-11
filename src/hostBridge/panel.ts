@@ -68,6 +68,8 @@ export class GameDebuggerPanel implements vscode.Disposable {
     private surface?: DebuggerSurface;
     /** 停靠视图实例只由 VS Code 解析一次，留一份引用用于「切回侧边栏」时重新挂载。 */
     private lastView?: vscode.WebviewView;
+    /** 编辑器页签实例：搬回侧边栏时要顺手把这个页签关掉，否则两处会同时显示。 */
+    private lastPanel?: vscode.WebviewPanel;
     private placeholderSubscription?: vscode.Disposable;
     private bridgeSubscription?: DisposableLike;
     private messageSubscription?: vscode.Disposable;
@@ -133,6 +135,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
             }
         );
         panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'perf.png');
+        this.lastPanel = panel;
         this.attach(createPanelSurface(panel));
         panel.reveal(panel.viewColumn, false);
     }
@@ -150,10 +153,23 @@ export class GameDebuggerPanel implements vscode.Disposable {
         if (!view) {
             return false;
         }
-        await this.releaseSurface();
-        this.resolveWebviewView(view);
+        await this.handOffToView(view);
         await vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus');
         return true;
+    }
+
+    /**
+     * 把界面从编辑器页签交给侧边栏视图：先释放调试逻辑，再关掉编辑器页签，
+     * 最后重新挂载视图，保证同一时刻只有一处显示（否则会出现「页签在、侧栏空」）。
+     */
+    private async handOffToView(view: vscode.WebviewView): Promise<void> {
+        const panel = this.lastPanel;
+        this.lastPanel = undefined;
+        await this.releaseSurface();
+        if (panel) {
+            panel.dispose();
+        }
+        this.resolveWebviewView(view);
     }
 
     /** 停靠到次级侧边栏（辅助侧边栏）的视图入口。 */
@@ -163,11 +179,15 @@ export class GameDebuggerPanel implements vscode.Disposable {
         if (previous?.kind === 'view') {
             return;
         }
+        const stalePanel = this.lastPanel;
+        this.lastPanel = undefined;
         if (previous) {
             // 侧边栏视图优先：把编辑器页签收掉，避免两套控制器抢同一条会话
             void this.releaseSurface();
             previous.dispose();
         }
+        // 之前已经释放过调试逻辑但没关掉的页签也要收掉（dispose 幂等）
+        stalePanel?.dispose();
         view.webview.options = {
             enableScripts: true,
             localResourceRoots: [this.extensionUri]
@@ -240,6 +260,9 @@ export class GameDebuggerPanel implements vscode.Disposable {
             void surface.webview.postMessage({ type: 'hostBridgeState', snapshot });
         });
         this.surfaceDisposeSubscription = surface.onDispose(() => {
+            if (surface.kind === 'panel') {
+                this.lastPanel = undefined;
+            }
             void this.releaseSurface();
         });
         this.surfaceVisibilitySubscription = surface.onVisibilityChange(visible => {
@@ -922,11 +945,10 @@ export class GameDebuggerPanel implements vscode.Disposable {
 
     /** 在「侧边栏停靠视图」和「编辑器页签」之间切换。 */
     public async toggleSurface(): Promise<void> {
-        if (this.surface?.kind === 'panel') {
+        if (this.surface?.kind === 'panel' || this.lastPanel) {
             const view = this.lastView;
-            await this.releaseSurface();
             if (view) {
-                this.resolveWebviewView(view);
+                await this.handOffToView(view);
                 void vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux');
             }
             return;

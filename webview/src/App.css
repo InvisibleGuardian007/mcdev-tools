@@ -3039,3 +3039,173 @@ button.mod-review-status:disabled {
     display: none;
   }
 }
+
+/* ---------- 可折叠分区 ---------- */
+.section-header-toggle {
+  cursor: pointer;
+  user-select: none;
+  margin: -4px -6px 12px;
+  padding: 4px 6px;
+  border-radius: var(--panel-radius);
+  transition: background-color 120ms ease;
+}
+
+.section-header-toggle:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.section-header-toggle:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* 折叠箭头比普通图标小，且不带图标底框 */
+.section-header-toggle .section-title > .section-chevron {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: none;
+  background-color: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.section-header-toggle[aria-expanded='true'] .section-chevron {
+  transform: rotate(90deg);
+}
+
+.section-header-toggle[aria-expanded='false'] .section-chevron {
+  transform: rotate(0deg);
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* 折叠时只保留标题行，其余内容整体隐藏 */
+.section.is-collapsed {
+  padding-bottom: 10px;
+}
+
+.section.is-collapsed > *:not(.section-header-plain) {
+  display: none;
+}
+
+.section.is-collapsed > .section-header-plain {
+  margin-bottom: 0;
+}
+
+/* ---------- 选择存档 ---------- */
+.world-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.world-select-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.world-select-refresh {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background-color: var(--panel-surface);
+  color: var(--vscode-icon-foreground);
+}
+
+.world-select-refresh:hover {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}
+
+.world-select-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---------- 按存档装配 MOD ---------- */
+.world-auto-mods-row {
+  margin-top: 8px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.world-auto-mods-row label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.world-sync-mods {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background-color: var(--panel-surface);
+  color: var(--vscode-icon-foreground);
+}
+
+.world-sync-mods:hover:not(:disabled) {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}
+
+.world-sync-mods:disabled {
+  opacity: 0.5;
+}
+
+/* ---------- 重载存档 ---------- */
+.reload-world-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+
+.reload-world-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background-color: var(--panel-surface);
+  color: var(--vscode-foreground);
+  font-size: 12px;
+}
+
+.reload-world-btn:hover:not(:disabled) {
+  border-color: var(--vscode-focusBorder);
+}
+
+.reload-world-btn:disabled {
+  opacity: 0.5;
+}
+
+.reload-world-hint {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground);
+}
+

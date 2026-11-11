@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.52",
+    "version": "0.1.55",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -405,7 +405,7 @@
         "native:build": "cmake --build native/tracy-bridge/build/x64-msvc-release",
         "native:test": "ctest --test-dir native/tracy-bridge/build/x64-msvc-release --output-on-failure",
         "native:install": "cmake --install native/tracy-bridge/build/x64-msvc-release",
-        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js",
+        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/hostBridge/worldMods.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js out/sidebar/worlds.test.js",
         "lint": "eslint src --ext ts"
     },
     "dependencies": {

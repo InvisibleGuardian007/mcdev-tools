@@ -34,6 +34,17 @@ export interface I18nText {
   worldSettings: string;
   worldName: string;
   worldFolder: string;
+  worldSelect: string;
+  worldSelectHint: string;
+  worldSelectRefresh: string;
+  worldAutoMods: string;
+  worldAutoModsHint: string;
+  worldSyncMods: string;
+  worldManualSection: string;
+  worldModUnit: string;
+  worldPackUnit: string;
+  reloadWorldButton: string;
+  reloadWorldButtonHint: string;
   worldSeed: string;
   worldType: string;
   infinity: string;
@@ -445,6 +456,17 @@ export const i18n: Record<string, I18nText> = {
     worldSettings: 'World Settings',
     worldName: 'World Name',
     worldFolder: 'World Folder',
+    worldSelect: 'Pick a saved world',
+    worldSelectHint: 'Picking a world decides what loads: the mods it references are assembled before launch.',
+    worldSelectRefresh: 'Refresh world list',
+    worldAutoMods: 'Assemble mods from this world on launch',
+    worldAutoModsHint: 'Reads the selected world\'s mod packs and rewrites the mod list before every launch — no manual picking.',
+    worldSyncMods: 'Sync mod list from this world now',
+    worldManualSection: 'Manual override',
+    worldModUnit: ' mods',
+    worldPackUnit: ' packs',
+    reloadWorldButton: 'Reload world',
+    reloadWorldButtonHint: 'Save the config, close the game and launch it again so the current settings take effect.',
     worldSeed: 'World Seed',
     worldType: 'World Type',
     infinity: 'Infinity',
@@ -857,6 +879,17 @@ export const i18n: Record<string, I18nText> = {
     worldSettings: '世界设置',
     worldName: '世界名称',
     worldFolder: '世界文件夹',
+    worldSelect: '选择存档',
+    worldSelectHint: '选中即决定这次加载哪些 mod：该存档引用的 mod 包会在启动前自动装配。',
+    worldSelectRefresh: '刷新存档列表',
+    worldAutoMods: '启动时按此存档装配 MOD',
+    worldAutoModsHint: '每次启动前读取该存档引用的 mod 包并重写 MOD 目录列表，无需手动勾选。',
+    worldSyncMods: '立即按此存档同步 MOD 列表',
+    worldManualSection: '手动指定（高级）',
+    worldModUnit: ' 个 MOD',
+    worldPackUnit: ' 个包',
+    reloadWorldButton: '重载存档',
+    reloadWorldButtonHint: '自动保存配置、关闭游戏并按当前配置重新启动，省去手动退出重进。',
     worldSeed: '世界种子',
     worldType: '世界类型',
     infinity: '无限世界',

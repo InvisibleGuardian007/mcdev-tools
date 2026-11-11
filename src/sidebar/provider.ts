@@ -10,6 +10,14 @@ import {
     getGameExecutablePaths,
     isGameExecutableDiscoverySupported
 } from '../native/gameDiscovery';
+import { listMinecraftWorlds } from './worlds';
+import {
+    applyWorldAutoMods,
+    collectModCandidates,
+    indexModPacks,
+    normalizePackId,
+    readIncludedModDirs,
+} from '../hostBridge/worldMods';
 
 // 构建标识统一由 utils/buildInfo 生成，避免多处重复读取 package.json
 
@@ -131,6 +139,12 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await vscode.commands.executeCommand('mcdev-tools.openGameDebugger');
             } else if (msg?.type === 'openPerfMonitor') {
                 await vscode.commands.executeCommand('mcdev-tools.openPerfMonitor');
+            } else if (msg?.type === 'getWorlds') {
+                this.handleGetWorlds(webview);
+            } else if (msg?.type === 'syncWorldMods') {
+                await this.handleSyncWorldMods(webview, msg.folder);
+            } else if (msg?.type === 'reloadWorld') {
+                await this.handleReloadWorld(webview, msg.content);
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -176,6 +190,76 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 gameExecutableDiscoverySupported: isGameExecutableDiscoverySupported
             });
         }
+    }
+
+    /**
+     * 列出本机 minecraftWorlds 下的存档，供「选择存档」下拉使用
+     */
+    private handleGetWorlds(webview: vscode.Webview): void {
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            let hasLocalPack: ((packId: string) => boolean) | undefined;
+            if (workspaceFolder) {
+                const workspaceRoot = workspaceFolder.uri.fsPath;
+                const packIndex = indexModPacks(collectModCandidates(workspaceRoot, readIncludedModDirs(workspaceRoot)));
+                hasLocalPack = (packId: string) => packIndex.has(normalizePackId(packId));
+            }
+            const items = listMinecraftWorlds(undefined, { hasLocalPack });
+            webview.postMessage({ type: 'worlds', items });
+        } catch (e) {
+            console.warn('读取存档列表失败', e);
+            webview.postMessage({ type: 'worlds', items: [] });
+        }
+    }
+
+    /**
+     * 立即按选中存档重写 included_mod_dirs（用户手动点「同步此存档的 MOD 列表」）
+     */
+    private async handleSyncWorldMods(webview: vscode.Webview, folder?: string): Promise<void> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('请先打开工作区再同步 MOD 列表');
+            return;
+        }
+        try {
+            const result = applyWorldAutoMods(workspaceFolder.uri.fsPath, {
+                force: true,
+                worldFolder: typeof folder === 'string' ? folder : undefined,
+            });
+            if (result.status === 'applied' || result.status === 'unchanged') {
+                const missing = result.unknownPacks.length > 0 ? `，${result.unknownPacks.length} 个包在本地找不到` : '';
+                vscode.window.showInformationMessage(
+                    `已按存档装配 ${result.dirs.length} 个 MOD 目录${missing}`,
+                );
+                await webview.postMessage({ type: 'saved' });
+            } else {
+                vscode.window.showWarningMessage(`未能按存档装配 MOD：${result.reason ?? result.status}`);
+            }
+            this.handleGetWorlds(webview);
+        } catch (e) {
+            vscode.window.showErrorMessage(`同步 MOD 列表失败: ${e}`);
+        }
+    }
+
+    /**
+     * 处理 reloadWorld 消息：先落盘当前配置，再让插件重启游戏
+     */
+    private async handleReloadWorld(webview: vscode.Webview, content?: string): Promise<void> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('请先打开工作区再重载存档');
+            return;
+        }
+        if (typeof content === 'string' && content.trim()) {
+            try {
+                await this._configStore.write(workspaceFolder.uri.fsPath, content);
+                await webview.postMessage({ type: 'saved' });
+            } catch (e) {
+                vscode.window.showErrorMessage(`保存 .mcdev.json 失败: ${e}`);
+                return;
+            }
+        }
+        await vscode.commands.executeCommand('mcdev-tools.reloadWorld');
     }
 
     /**

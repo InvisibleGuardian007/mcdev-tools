@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile } from 'child_process';
 import { isMinecraftAddonWorkspace } from './utils';
 import { McDevToolsSidebarProvider } from './sidebar';
 import { dynamicLibraryManager } from './native/dynamicLibraryManager';
 import { GameDebuggerPanel, HostBridgeManager, PerfMonitorPanel, PreparedHostBridgeLaunch } from './hostBridge';
 import { shutdownAllNativeProfilerCaptures } from './hostBridge/nativeProfilerCapture';
+import { applyWorldAutoMods } from './hostBridge/worldMods';
 import { McdevConfigStore } from './config';
 import { 
     McDevToolsDebugConfigurationProvider,
@@ -17,6 +19,8 @@ let extensionContext: vscode.ExtensionContext;
 let mcdevConfigStore: McdevConfigStore | undefined;
 let hostBridgeManager: HostBridgeManager | undefined;
 let gameDebuggerPanel: GameDebuggerPanel | undefined;
+/** 最近一次由 runMcdk 打开的 mcdk 终端，重载存档时先用它结束 mcdk 进程 */
+let mcdkTerminal: vscode.Terminal | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log('Minecraft ModPC Debug 插件已激活');
@@ -108,7 +112,12 @@ function registerCommands(context: vscode.ExtensionContext): void {
         openPerfMonitor({ autoStart: true });
     });
 
-    context.subscriptions.push(startDebugCmd, panelCmd, runCmd, openGameDebuggerCmd, openPerfMonitorCmd);
+    // 重载存档：关闭游戏并按当前 .mcdev.json 重新启动
+    const reloadWorldCmd = vscode.commands.registerCommand('mcdev-tools.reloadWorld', async () => {
+        await reloadGameWorld();
+    });
+
+    context.subscriptions.push(startDebugCmd, panelCmd, runCmd, openGameDebuggerCmd, openPerfMonitorCmd, reloadWorldCmd);
 }
 
 /**
@@ -154,34 +163,33 @@ function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
     if (!options.fallbackToEditor) {
         return;
     }
-    // 自动打开：视图被 VS Code 解析是异步的（次级侧边栏收起 / 刚重载窗口时更慢），
-    // 这里按 500ms 一轮重试 6 轮；期间界面若落在编辑器页签就搬回侧边栏，
-    // 直到视图真的拿不到才退回编辑器页签，保证面板一定能看到。
+    // 自动打开：视图由 VS Code 异步解析（次级侧边栏收起 / 刚重载窗口 / 刚激活时更慢），
+    // 所以这里持续重试 —— 只要还没真正停靠在视图里就不放弃：界面万一被兜底塞进了
+    // 编辑器页签，一有视图就搬回侧边栏（同时关掉那个页签）。
     stopDebuggerAutoOpenTimer();
-    let round = 0;
+    const startedAt = Date.now();
+    let fellBackToEditor = false;
     debuggerAutoOpenTimer = setInterval(() => {
-        round += 1;
         const panel = gameDebuggerPanel;
         if (!panel || panel.surfaceKind === 'view') {
             stopDebuggerAutoOpenTimer();
             return;
         }
         if (panel.surfaceKind === 'panel') {
-            // 已经在编辑器页签：搬回侧边栏；同时继续聚焦视图（视图一被解析就会自动接管）
+            // 已经在编辑器页签：搬回侧边栏，同时继续聚焦视图（视图一被解析就接管）
             void panel.dockToSidebar();
-            if (round >= 6) {
-                stopDebuggerAutoOpenTimer();
-                return;
-            }
             revealGameDebuggerView();
-            return;
+        } else {
+            revealGameDebuggerView();
+            // 兜底：等了 3 秒还没有任何宿主，先开编辑器页签让用户能看到界面
+            if (!fellBackToEditor && Date.now() - startedAt >= 3000) {
+                fellBackToEditor = true;
+                panel.show();
+            }
         }
-        if (round >= 6) {
+        if (Date.now() - startedAt >= 10000) {
             stopDebuggerAutoOpenTimer();
-            panel.show();
-            return;
         }
-        revealGameDebuggerView();
     }, 500);
 }
 
@@ -321,6 +329,24 @@ function registerDebugSessionListener(context: vscode.ExtensionContext): void {
 }
 
 /**
+ * 按选中的存档重写 .mcdev.json 的 included_mod_dirs。
+ * 默认只提示，不打断启动流程。
+ */
+function syncWorldModsForLaunch(workspaceRoot: string): void {
+    try {
+        const result = applyWorldAutoMods(workspaceRoot);
+        if (result.status === 'applied') {
+            const worldName = result.worldDir ? path.basename(result.worldDir) : '';
+            console.log(`已按存档 ${worldName} 装配 ${result.dirs.length} 个 MOD 目录`);
+        } else if (result.status === 'failed') {
+            console.warn(`按存档装配 MOD 失败: ${result.reason ?? result.status}`);
+        }
+    } catch (error) {
+        console.warn('按存档装配 MOD 出错', error);
+    }
+}
+
+/**
  * 启动调试会话（从 GUI 按钮调用）
  * 总是启动新实例，不检查重新附加
  */
@@ -330,6 +356,9 @@ async function startDebugSession(): Promise<void> {
         vscode.window.showErrorMessage('请先打开工作区');
         return;
     }
+
+    // 启动前按选中存档装配 MOD 列表
+    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
 
     // 使用 launchNewInstance 直接启动，不走 provider 的重新附加逻辑
     if (!hostBridgeManager) {
@@ -372,6 +401,9 @@ async function runMcdk(): Promise<void> {
         vscode.window.showErrorMessage('请先打开工作区');
         return;
     }
+
+    // 启动前按选中存档装配 MOD 列表
+    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
 
     const config = vscode.workspace.getConfiguration('mcdev-tools');
     const mcdkPathConfig = config.get<string>('mcdkPath', '');
@@ -436,9 +468,57 @@ async function runMcdk(): Promise<void> {
     if (bridgeLaunch && hostBridgeManager) {
         hostBridgeManager.trackTerminal(bridgeLaunch.registrationId, terminal);
     }
+    mcdkTerminal = terminal;
+    const closeListener = vscode.window.onDidCloseTerminal(closed => {
+        if (closed === terminal) {
+            mcdkTerminal = undefined;
+            closeListener.dispose();
+        }
+    });
 
     terminal.show(true);
     vscode.window.showInformationMessage('Minecraft ModPC 已启动（无调试）');
+}
+
+/**
+ * 强制结束还在运行的 Minecraft 进程（重载存档前调用）。
+ */
+function killProcessByImage(imageName: string): Promise<boolean> {
+    return new Promise(resolve => {
+        execFile('taskkill', ['/F', '/T', '/IM', imageName], { windowsHide: true }, error => {
+            resolve(!error);
+        });
+    });
+}
+
+/**
+ * 重载存档：关掉 mcdk 终端 -> 结束游戏进程 -> 按当前配置重新启动。
+ * 相比手动退出游戏再点运行，省掉一次点击和一次误用旧配置的风险。
+ */
+async function reloadGameWorld(): Promise<void> {
+    const terminal = mcdkTerminal;
+    mcdkTerminal = undefined;
+    terminal?.dispose();
+
+    let killed = false;
+    try {
+        if (await ptvsd.isModpcRunning()) {
+            killed = await killProcessByImage('Minecraft.Windows.exe');
+            // 游戏进程退出后 mcdk 通常自己收尾；仍然存活时连 mcdk 一起结束
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            if (await ptvsd.isModpcRunning()) {
+                await killProcessByImage('mcdk.exe');
+            }
+        }
+    } catch (error) {
+        console.warn('关闭 Minecraft 进程失败，继续重载', error);
+    }
+
+    if (killed) {
+        // 给端口和包目录留出释放时间，避免新实例起不来
+        await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+    await runMcdk();
 }
 
 export async function deactivate(): Promise<void> {

@@ -2,6 +2,7 @@ import React from 'react';
 import { I18nText } from '../i18n';
 import { vscode } from '../vscode';
 import { useNestedDefaultValues } from '../hooks/useDefaultValues';
+import { SectionHeader } from './SectionHeader';
 
 interface McpServerConfigData {
   enabled?: boolean;
@@ -48,11 +49,7 @@ export const McpServerConfig: React.FC<Props> = ({
 
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-server"></span>
-          {t.mcpServerConfig}
-        </span>
+      <SectionHeader id="mcp" icon="codicon-server" title={t.mcpServerConfig}>
         <button
           type="button"
           className="btn-link-compact mcp-bridge-btn"
@@ -62,7 +59,7 @@ export const McpServerConfig: React.FC<Props> = ({
           <span className="codicon codicon-link-external"></span>
           {t.getMcpBridgeTool}
         </button>
-      </div>
+      </SectionHeader>
 
       <div className="section-description">
         {t.mcpServerDescription}

@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { I18nText } from '../i18n';
 import { useDefaultValues } from '../hooks/useDefaultValues';
 import { vscode } from '../vscode';
+import { SectionHeader } from './SectionHeader';
 
 interface McdevData {
   log_protocol?: 0 | 1;
@@ -30,6 +31,8 @@ interface Props {
   t: I18nText;
   data: McdevData;
   onDataChange: (field: string, value: any) => void;
+  /** 重载存档：保存当前配置并让插件重启游戏 */
+  onReloadWorld?: () => void;
   markInitialized?: (componentId: string) => void;
 }
 
@@ -53,6 +56,7 @@ export const GameOptions: FC<Props> = ({
   t,
   data,
   onDataChange,
+  onReloadWorld,
   markInitialized,
 }) => {
   useDefaultValues(
@@ -85,12 +89,7 @@ export const GameOptions: FC<Props> = ({
   return (
     <>
       <div className="section">
-        <div className="section-header-plain">
-          <span className="section-title">
-            <span className="codicon codicon-debug-alt"></span>
-            {t.startupOptions}
-          </span>
-        </div>
+        <SectionHeader id="startup" icon="codicon-debug-alt" title={t.startupOptions} />
 
         <div className="checkbox-grid">
           <div className="checkbox-group">
@@ -131,6 +130,20 @@ export const GameOptions: FC<Props> = ({
             </label>
           </div>
 
+        </div>
+
+        <div className="reload-world-row">
+          <button
+            type="button"
+            className="btn-link-compact reload-world-btn"
+            onClick={onReloadWorld}
+            disabled={!onReloadWorld}
+            title={t.reloadWorldButtonHint}
+          >
+            <span className="codicon codicon-debug-restart"></span>
+            {t.reloadWorldButton}
+          </button>
+          <span className="reload-world-hint">{t.reloadWorldButtonHint}</span>
         </div>
 
         <fieldset className="log-protocol-field">
@@ -334,12 +347,7 @@ export const GameOptions: FC<Props> = ({
       </div>
 
       <div className="section">
-        <div className="section-header-plain">
-          <span className="section-title">
-            <span className="codicon codicon-law"></span>
-            {t.gameRules}
-          </span>
-        </div>
+        <SectionHeader id="gameRules" icon="codicon-law" title={t.gameRules} />
 
         <div className="checkbox-grid">
           <div className="checkbox-group">

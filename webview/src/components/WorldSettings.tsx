@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { I18nText } from '../i18n';
+import type { WorldInfo } from '../types';
 import { useDefaultValues } from '../hooks/useDefaultValues';
 import { useExperimentDefaults, EXPERIMENT_DEFAULT_VALUES } from '../hooks/useExperimentDefaults';
 import { NumberSelect } from './NumberSelect';
+import { SectionHeader } from './SectionHeader';
 
 interface McdevData {
   world_name?: string;
   world_folder_name?: string;
+  /** 启动时按选中存档自动装配 MOD 目录（默认开启） */
+  world_auto_mods?: boolean;
   world_seed?: number | null;
   game_mode?: number;
   world_type?: number;
@@ -22,6 +26,10 @@ interface McdevData {
 interface Props {
   t: I18nText;
   data: McdevData;
+  worlds?: WorldInfo[];
+  onRefreshWorlds?: () => void;
+  /** 立即按当前选中存档重写 MOD 目录列表 */
+  onSyncWorldMods?: (folder: string) => void;
   onDataChange: (field: string, value: any) => void;
   onExperimentChange: (field: string, checked: boolean) => void;
   markInitialized?: (componentId: string) => void;
@@ -31,46 +39,136 @@ interface Props {
 const DEFAULT_VALUES: McdevData = {
   world_name: 'MC_DEV_WORLD',
   world_folder_name: 'MC_DEV_WORLD',
+  world_auto_mods: true,
   world_seed: null,
   world_type: 1,
   game_mode: 1,
 };
 
-export const WorldSettings: React.FC<Props> = ({ t, data, onDataChange, onExperimentChange, markInitialized }) => {
+export const WorldSettings: React.FC<Props> = ({
+  t,
+  data,
+  worlds = [],
+  onRefreshWorlds,
+  onSyncWorldMods,
+  onDataChange,
+  onExperimentChange,
+  markInitialized,
+}) => {
   const [experimentExpanded, setExperimentExpanded] = useState(false);
+  const [manualExpanded, setManualExpanded] = useState(false);
+
+  const currentFolder = data.world_folder_name ?? DEFAULT_VALUES.world_folder_name ?? '';
+  // 同一个文件夹只保留一条，避免选中项和列表项叠加显示
+  const uniqueWorlds = React.useMemo(() => {
+    const seen = new Set<string>();
+    return worlds.filter((item) => {
+      if (seen.has(item.folder)) {
+        return false;
+      }
+      seen.add(item.folder);
+      return true;
+    });
+  }, [worlds]);
+  const currentWorld = uniqueWorlds.find((item) => item.folder === currentFolder);
+  const formatWorldLabel = (item: WorldInfo): string => {
+    const name = item.name && item.name !== item.folder ? `${item.name} — ${item.folder}` : item.folder;
+    return `${name} （${item.matchedMods}${t.worldModUnit} / ${item.packs}${t.worldPackUnit}）`;
+  };
 
   useDefaultValues(data, DEFAULT_VALUES, onDataChange, markInitialized ? () => markInitialized('WorldSettings') : undefined);
   useExperimentDefaults(data.experiment_options, onExperimentChange, markInitialized ? () => markInitialized('ExperimentOptions') : undefined);
 
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-globe"></span>
-          {t.worldSettings}
-        </span>
-      </div>
+      <SectionHeader id="world" icon="codicon-globe" title={t.worldSettings} />
       
       <div className="control-group">
-        <label htmlFor="world_name">{t.worldName}</label>
-        <input
-          type="text"
-          id="world_name"
-          value={data.world_name ?? DEFAULT_VALUES.world_name ?? ''}
-          onChange={(e) => onDataChange('world_name', e.target.value)}
-          placeholder="MC_DEV_WORLD"
-        />
+        <label htmlFor="world_folder_pick">{t.worldSelect}</label>
+        <div className="world-select-row">
+          <select
+            id="world_folder_pick"
+            value={currentFolder}
+            onChange={(e) => {
+              const picked = uniqueWorlds.find((item) => item.folder === e.target.value);
+              onDataChange('world_folder_name', e.target.value);
+              if (picked) {
+                onDataChange('world_name', picked.name);
+              }
+            }}
+          >
+            {!currentWorld && (
+              <option value={currentFolder}>{currentFolder || '—'}</option>
+            )}
+            {uniqueWorlds.map((item) => (
+              <option key={item.folder} value={item.folder}>
+                {formatWorldLabel(item)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-link-compact world-select-refresh"
+            onClick={onRefreshWorlds}
+            title={t.worldSelectRefresh}
+            aria-label={t.worldSelectRefresh}
+          >
+            <span className="codicon codicon-refresh"></span>
+          </button>
+        </div>
+        <div className="world-select-hint">{t.worldSelectHint}</div>
+        <div className="checkbox-group world-auto-mods-row">
+          <input
+            type="checkbox"
+            id="world_auto_mods"
+            checked={data.world_auto_mods !== false}
+            onChange={(e) => onDataChange('world_auto_mods', e.target.checked)}
+          />
+          <label htmlFor="world_auto_mods">{t.worldAutoMods}</label>
+          <button
+            type="button"
+            className="btn-link-compact world-sync-mods"
+            onClick={() => onSyncWorldMods?.(currentFolder)}
+            title={t.worldSyncMods}
+            aria-label={t.worldSyncMods}
+            disabled={!currentFolder}
+          >
+            <span className="codicon codicon-sync"></span>
+          </button>
+        </div>
+        <div className="world-select-hint">{t.worldAutoModsHint}</div>
       </div>
 
-      <div className="control-group">
-        <label htmlFor="world_folder_name">{t.worldFolder}</label>
-        <input
-          type="text"
-          id="world_folder_name"
-          value={data.world_folder_name ?? DEFAULT_VALUES.world_folder_name ?? ''}
-          onChange={(e) => onDataChange('world_folder_name', e.target.value)}
-          placeholder="MC_DEV_WORLD"
-        />
+      <div className={`subsection ${manualExpanded ? '' : 'collapsed'}`}>
+        <div className="subsection-header" onClick={() => setManualExpanded(!manualExpanded)}>
+          <span className="subsection-title">
+            <span className="codicon codicon-chevron-right"></span>
+            {t.worldManualSection}
+          </span>
+        </div>
+        <div className="collapsible-content">
+          <div className="control-group">
+            <label htmlFor="world_name">{t.worldName}</label>
+            <input
+              type="text"
+              id="world_name"
+              value={data.world_name ?? DEFAULT_VALUES.world_name ?? ''}
+              onChange={(e) => onDataChange('world_name', e.target.value)}
+              placeholder="MC_DEV_WORLD"
+            />
+          </div>
+
+          <div className="control-group">
+            <label htmlFor="world_folder_name">{t.worldFolder}</label>
+            <input
+              type="text"
+              id="world_folder_name"
+              value={data.world_folder_name ?? DEFAULT_VALUES.world_folder_name ?? ''}
+              onChange={(e) => onDataChange('world_folder_name', e.target.value)}
+              placeholder="MC_DEV_WORLD"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="control-group">

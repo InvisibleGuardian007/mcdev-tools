@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { I18nText } from '../i18n';
 import { vscode } from '../vscode';
+import { SectionHeader } from './SectionHeader';
 
 interface Props {
   t: I18nText;
@@ -118,12 +119,7 @@ export const LauncherSettings: React.FC<Props> = ({
 
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-rocket"></span>
-          {t.launcherSettings}
-        </span>
-      </div>
+      <SectionHeader id="launcher" icon="codicon-rocket" title={t.launcherSettings} />
 
       <div className="control-group">
         <label htmlFor="game_executable_path">{t.launcherPath}</label>

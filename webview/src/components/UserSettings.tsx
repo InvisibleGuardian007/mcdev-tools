@@ -1,5 +1,6 @@
 import React from 'react';
 import { I18nText } from '../i18n';
+import { SectionHeader } from './SectionHeader';
 
 interface McdevData {
   user_name?: string;
@@ -14,12 +15,7 @@ interface Props {
 export const UserSettings: React.FC<Props> = ({ t, data, onDataChange }) => {
   return (
     <div className="section">
-      <div className="section-header-plain">
-        <span className="section-title">
-          <span className="codicon codicon-account"></span>
-          {t.userSettings}
-        </span>
-      </div>
+      <SectionHeader id="user" icon="codicon-account" title={t.userSettings} />
 
       <div className="control-group">
         <label htmlFor="user_name">{t.userName}</label>

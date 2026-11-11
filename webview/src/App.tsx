@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { vscode } from './vscode';
 import { i18n } from './i18n';
-import { ModDir, McdevData } from './types';
+import { ModDir, McdevData, WorldInfo } from './types';
 import { ModDirectories } from './components/ModDirectories';
 import { WorldSettings } from './components/WorldSettings';
 import { GameOptions } from './components/GameOptions';
@@ -28,6 +28,7 @@ function App() {
   const [gameExecutableDiscoveryLoaded, setGameExecutableDiscoveryLoaded] = useState(false);
   const [gameExecutablePaths, setGameExecutablePaths] = useState<string[]>([]);
   const [buildLabel, setBuildLabel] = useState<string>('');
+  const [worlds, setWorlds] = useState<WorldInfo[]>([]);
   
   const initializedComponentsRef = useRef<Set<string>>(new Set());
   const initTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -90,6 +91,9 @@ function App() {
           }));
           setHasChanges(true);
           break;
+        case 'worlds':
+          setWorlds(Array.isArray(msg.items) ? msg.items : []);
+          break;
         case 'gameExecutablePaths':
           setGameExecutablePaths(Array.isArray(msg.paths)
             ? msg.paths.filter((value: unknown): value is string => typeof value === 'string')
@@ -101,6 +105,7 @@ function App() {
 
     window.addEventListener('message', handleMessage);
     vscode.postMessage({ type: 'ready' });
+    vscode.postMessage({ type: 'getWorlds' });
 
     return () => window.removeEventListener('message', handleMessage);
   }, []);
@@ -371,6 +376,13 @@ function App() {
       <WorldSettings
         t={t}
         data={data}
+        worlds={worlds}
+        onRefreshWorlds={() => vscode.postMessage({ type: 'getWorlds' })}
+        onSyncWorldMods={(folder: string) => {
+          // 先把当前选择落盘，扩展侧再按该存档重写 MOD 目录列表
+          vscode.postMessage({ type: 'save', content: JSON.stringify(collectData(), null, 4) });
+          vscode.postMessage({ type: 'syncWorldMods', folder });
+        }}
         onDataChange={handleDataChange}
         onExperimentChange={handleExperimentChange}
         markInitialized={markInitialized}
@@ -381,6 +393,12 @@ function App() {
         t={t}
         data={data}
         onDataChange={handleDataChange}
+        onReloadWorld={() => {
+          vscode.postMessage({
+            type: 'reloadWorld',
+            content: JSON.stringify(collectData(), null, 4),
+          });
+        }}
         markInitialized={markInitialized}
       />
 

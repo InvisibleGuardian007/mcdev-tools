@@ -4,11 +4,25 @@ export interface ModDir {
   enabled: boolean;
 }
 
+/** minecraftWorlds 目录下的一个存档 */
+export interface WorldInfo {
+  /** 存档文件夹名，对应 .mcdev.json 的 world_folder_name */
+  folder: string;
+  /** levelname.txt 里的世界名 */
+  name: string;
+  /** 存档引用的行为包数量 */
+  packs: number;
+  /** 这个存档引用的 MOD 中，本地能找到对应目录的数量 */
+  matchedMods: number;
+}
+
 export interface McdevData {
   game_executable_path?: string;
   log_protocol?: 0 | 1;
   world_name?: string;
   world_folder_name?: string;
+  /** 启动时按选中存档自动装配 MOD 目录（默认开启） */
+  world_auto_mods?: boolean;
   world_seed?: number | null;
   world_type?: number;
   game_mode?: number;
