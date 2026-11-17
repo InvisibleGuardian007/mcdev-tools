@@ -118,6 +118,31 @@ test('server rejects an unknown authentication token', async t => {
     assert.equal(((response.error as JsonObject).data as JsonObject).code, 'AUTH_FAILED');
 });
 
+test('sweepDeadSessions 清掉进程已经没了的死会话，但不动有连接的会话', async t => {
+    const server = new HostBridgeServer({
+        name: 'mcdev-tools-test',
+        version: '1.0.0',
+        instanceId: 'test-window'
+    });
+    t.after(async () => server.dispose());
+    const port = await server.start(0);
+    const launch = server.registerLaunch('D:/workspace/sweep');
+    const sessionId = '44444444-4444-4444-8444-444444444444';
+    const session = await connectMcdk(port, launch.environment.MCDEV_HOST_TOKEN, sessionId, 999_101, 999_201);
+    t.after(() => session.socket.destroy());
+    await waitFor(() => server.getSnapshot().sessions.some(item => item.id === sessionId && item.connected));
+
+    // 有活动连接时交给 mcdk 自己报 exited，巡检不碰它
+    assert.equal(server.sweepDeadSessions(), 0);
+
+    session.socket.destroy();
+    await waitFor(() => server.getSnapshot().sessions.every(item => !item.connected));
+
+    // 连接断了，且 999101 / 999201 这两个 pid 并不存在 → 会话应被清掉
+    assert.equal(server.sweepDeadSessions(), 1);
+    assert.deepEqual(server.getSnapshot().sessions, []);
+});
+
 test('listeners use OS-assigned ports instead of a fixed port', async t => {
     const first = new HostBridgeServer({ name: 'test', version: '1', instanceId: 'one' });
     const second = new HostBridgeServer({ name: 'test', version: '1', instanceId: 'two' });

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getNonce } from '../utils';
+import { resolveExtensionVersion } from '../utils/buildInfo';
 
 export type HostBridgeWebviewView = 'game-debugger' | 'perf-monitor' | 'studio';
 
@@ -25,9 +26,14 @@ export function buildWebviewPage(
     const nonce = getNonce();
     const language = vscode.env.language.startsWith('zh') ? 'zh' : 'en';
     const webviewPath = vscode.Uri.joinPath(extensionUri, 'out', 'webview');
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.js'));
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.css'));
-    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'codicons', 'codicon.css'));
+    // 带版本号查询串：窗口重载后不会命中上一版前端的资源缓存
+    const cacheKey = `v=${resolveExtensionVersion(extensionUri.fsPath)}`;
+    const versioned = (relative: string[]) => vscode.Uri.parse(
+        `${webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, ...relative)).toString()}?${cacheKey}`
+    );
+    const scriptUri = versioned(['sidebar.js']);
+    const styleUri = versioned(['sidebar.css']);
+    const codiconsUri = versioned(['codicons', 'codicon.css']);
 
     const bodyAttributes = [`data-view="${options.view}"`];
     if (options.autoStart !== undefined) {

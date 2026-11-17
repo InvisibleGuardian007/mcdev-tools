@@ -58,7 +58,7 @@ export const McpServerConfig: React.FC<Props> = ({
 
   const enabled = mcpServerConfig?.enabled ?? DEFAULT_VALUES.enabled;
   const endpoint = useMemo(() => {
-    const host = (mcpServerConfig?.server_ip ?? DEFAULT_VALUES.server_ip).trim() || 'localhost';
+    const host = String(mcpServerConfig?.server_ip ?? DEFAULT_VALUES.server_ip ?? '').trim() || 'localhost';
     const rawPort = Number(mcpServerConfig?.server_port ?? DEFAULT_VALUES.server_port);
     const port = Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.trunc(rawPort) : DEFAULT_VALUES.server_port;
     return `http://${host}:${port}/mcp`;

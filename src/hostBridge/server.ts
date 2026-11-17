@@ -16,11 +16,13 @@ import {
     isJsonRpcId,
     rpcIdKey
 } from './protocol';
+import { isProcessAlive, probeGameProcesses } from './processLiveness';
 import {
     DisposableLike,
     HostBridgeHostInfo,
     HostBridgeLifecycleState,
     HostBridgeMethodDescriptor,
+    HostBridgeProcessProbe,
     HostBridgeRegistration,
     HostBridgeSessionSummary,
     HostBridgeSnapshot,
@@ -118,6 +120,7 @@ export class HostBridgeServer {
     private serverStatus: HostBridgeSnapshot['status'] = 'idle';
     private serverPort?: number;
     private serverError?: string;
+    private processProbe?: HostBridgeProcessProbe;
 
     constructor(private readonly hostInfo: HostBridgeHostInfo) {}
 
@@ -146,8 +149,64 @@ export class HostBridgeServer {
             status: this.serverStatus,
             port: this.serverPort,
             error: this.serverError,
-            sessions
+            sessions,
+            ...(this.processProbe ? { gameProcesses: this.processProbe } : {})
         };
+    }
+
+    /**
+     * 清掉「游戏进程已经没了」的死会话。
+     * socket 断开时 closeConnection 只把 connected 置 false、不动 state，于是崩溃/被杀的会话会一直以
+     * 最后的状态（常见是 game_unavailable）留在界面上，看上去像「存档不可用」。这里按 pid 存活纠正它。
+     * 有活动连接的会话不参与（mcdk 自己会报 state/exited）。
+     */
+    public sweepDeadSessions(): number {
+        let removed = 0;
+        for (const record of [...this.sessions.values()]) {
+            if (record.connection?.phase === 'active') {
+                continue;
+            }
+            const { minecraftPid, mcdkPid } = record.summary;
+            if (minecraftPid === undefined && mcdkPid === undefined) {
+                continue;
+            }
+            if (isProcessAlive(minecraftPid) || isProcessAlive(mcdkPid)) {
+                continue;
+            }
+            if (record.removalTimer) {
+                clearTimeout(record.removalTimer);
+            }
+            this.sessions.delete(record.summary.id);
+            const registration = this.registrations.get(record.summary.registrationId);
+            if (registration?.sessionId === record.summary.id) {
+                registration.sessionId = undefined;
+            }
+            removed += 1;
+        }
+        if (removed > 0) {
+            this.emitChange();
+        }
+        return removed;
+    }
+
+    /** 扫描本机游戏 / mcdk 进程，并标出「在跑但没有会话绑定」的游戏进程。 */
+    public async refreshProcessProbe(): Promise<HostBridgeProcessProbe> {
+        const { minecraftPids, mcdkPids } = await probeGameProcesses();
+        const bound = new Set<number>();
+        for (const record of this.sessions.values()) {
+            if (typeof record.summary.minecraftPid === 'number') {
+                bound.add(record.summary.minecraftPid);
+            }
+        }
+        const probe: HostBridgeProcessProbe = {
+            minecraftPids,
+            mcdkPids,
+            unboundMinecraftPids: minecraftPids.filter(pid => !bound.has(pid)),
+            checkedAt: Date.now()
+        };
+        this.processProbe = probe;
+        this.emitChange();
+        return probe;
     }
 
     public async start(preferredPort = 0): Promise<number> {
@@ -336,6 +395,7 @@ export class HostBridgeServer {
         this.server = undefined;
         this.serverPort = undefined;
         this.serverStatus = 'idle';
+        this.processProbe = undefined;
         this.emitChange();
         if (server) {
             await new Promise<void>(resolve => server.close(() => resolve()));

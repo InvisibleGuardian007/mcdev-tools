@@ -7,9 +7,10 @@ import { McDevToolsSidebarProvider } from './sidebar';
 import { dynamicLibraryManager } from './native/dynamicLibraryManager';
 import { GameDebuggerPanel, HostBridgeManager, PerfMonitorPanel, PreparedHostBridgeLaunch } from './hostBridge';
 import { shutdownAllNativeProfilerCaptures } from './hostBridge/nativeProfilerCapture';
-import { applyWorldAutoMods } from './hostBridge/worldMods';
+import { traceSurface } from './hostBridge/surfaceTrace';
 import type { HostBridgeSessionSummary } from './hostBridge/types';
 import { McdevConfigStore } from './config';
+import { RenderEngineController } from './renderEngine';
 import { 
     McDevToolsDebugConfigurationProvider,
     McdbgDebugConfigurationProvider,
@@ -19,9 +20,13 @@ import {
 let extensionContext: vscode.ExtensionContext;
 let mcdevConfigStore: McdevConfigStore | undefined;
 let hostBridgeManager: HostBridgeManager | undefined;
+let renderEngineController: RenderEngineController | undefined;
 let gameDebuggerPanel: GameDebuggerPanel | undefined;
 /** 最近一次由 runMcdk 打开的 mcdk 终端，重载存档时先用它结束 mcdk 进程 */
 let mcdkTerminal: vscode.Terminal | undefined;
+
+/** 重启流程是否进行中：防止连点「重启」重复拉起，也避免与重载存档的兜底重启打架 */
+let restartingGame = false;
 
 /**
  * 把每个打开了调试的工作区的「固定端口 + 持久令牌」登记提前挂好，
@@ -46,8 +51,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     mcdevConfigStore = new McdevConfigStore();
     context.subscriptions.push(mcdevConfigStore);
+    // 渲染引擎一键切换：切到渲染龙 + 灵动视效后，游戏关闭时自动回退 OpenGL
     hostBridgeManager = await HostBridgeManager.create(context, mcdevConfigStore);
     context.subscriptions.push(hostBridgeManager);
+    renderEngineController = new RenderEngineController(context, hostBridgeManager);
+    context.subscriptions.push(renderEngineController);
+    renderEngineController.initialize();
     // 面板样式：studio = 只保留性能采集相关页签（自用默认），full = 原作者的多页签调试面板
     const debugViewStyle = vscode.workspace.getConfiguration('mcdev-tools').get<string>('debugView.style', 'studio');
     gameDebuggerPanel = new GameDebuggerPanel(
@@ -94,7 +103,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // 只有启用时才注册侧边栏提供器
     if (pluginEnabled) {
-        const sidebarProvider = new McDevToolsSidebarProvider(context.extensionUri, mcdevConfigStore);
+        const sidebarProvider = new McDevToolsSidebarProvider(
+            context.extensionUri,
+            mcdevConfigStore,
+            renderEngineController,
+            hostBridgeManager
+        );
         const sidebarDisp = vscode.window.registerWebviewViewProvider('mcdev-tools.sidebar', sidebarProvider);
         context.subscriptions.push(sidebarProvider, sidebarDisp);
         console.log('McDevToolsSidebarProvider 已注册');
@@ -129,6 +143,11 @@ function registerCommands(context: vscode.ExtensionContext): void {
         await runMcdk();
     });
 
+    // 重启游戏：结束当前 Minecraft 进程后按当前配置重新启动（面板「运行游戏」左边的按钮）
+    const restartCmd = vscode.commands.registerCommand('mcdev-tools.restartGame', async () => {
+        await restartGameProcess();
+    });
+
     const openGameDebuggerCmd = vscode.commands.registerCommand('mcdev-tools.openGameDebugger', () => {
         openGameDebugger();
     });
@@ -143,7 +162,21 @@ function registerCommands(context: vscode.ExtensionContext): void {
         await reloadGameWorld();
     });
 
-    context.subscriptions.push(startDebugCmd, panelCmd, runCmd, openGameDebuggerCmd, openPerfMonitorCmd, reloadWorldCmd);
+    // 一键切换渲染引擎（OpenGL ↔ 渲染龙 + 灵动视效）
+    const toggleRenderEngineCmd = vscode.commands.registerCommand('mcdev-tools.toggleRenderEngine', async () => {
+        await renderEngineController?.toggle();
+    });
+
+    context.subscriptions.push(
+        startDebugCmd,
+        panelCmd,
+        runCmd,
+        restartCmd,
+        openGameDebuggerCmd,
+        openPerfMonitorCmd,
+        reloadWorldCmd,
+        toggleRenderEngineCmd
+    );
 }
 
 /**
@@ -163,6 +196,9 @@ let debuggerAutoOpenTimer: ReturnType<typeof setInterval> | undefined;
 /** 把「性能调试」停靠视图叫出来：先展开次级侧边栏容器，再聚焦视图本身（未知命令忽略失败）。 */
 function revealGameDebuggerView(): void {
     const ignore = () => undefined;
+    // 贡献式容器的公开命令只有 .focus 变体（不带 .focus 的 id 未注册，发了会报
+    // "command not found"），所以这里只发 .focus，再叠加聚焦辅助栏和视图本身。
+    traceSurface('reveal', {});
     void vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus').then(ignore, ignore);
     void vscode.commands.executeCommand('workbench.action.focusAuxiliaryBar').then(ignore, ignore);
     void vscode.commands.executeCommand('mcdev-tools.debugView.focus').then(ignore, ignore);
@@ -179,7 +215,20 @@ function stopDebuggerAutoOpenTimer(): void {
  * 按设置打开「游戏调试」面板：默认停在次级侧边栏，也可以改成在编辑器区单开一个页签。
  */
 function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
-    const surface = vscode.workspace.getConfiguration('mcdev-tools').get<string>('gameDebugger.surface', 'auxiliarybar');
+    const configuration = vscode.workspace.getConfiguration('mcdev-tools');
+    const surface = configuration.get<string>('gameDebugger.surface', 'auxiliarybar');
+    const inspected = configuration.inspect<string>('gameDebugger.surface');
+    traceSurface('openGameDebugger', {
+        surface,
+        fallbackToEditor: Boolean(options.fallbackToEditor),
+        kind: gameDebuggerPanel?.surfaceKind,
+        sources: {
+            global: inspected?.globalValue ?? null,
+            workspace: inspected?.workspaceValue ?? null,
+            workspaceFolder: inspected?.workspaceFolderValue ?? null,
+            defaultValue: inspected?.defaultValue ?? null,
+        },
+    });
     if (surface === 'editor') {
         stopDebuggerAutoOpenTimer();
         gameDebuggerPanel?.show();
@@ -203,6 +252,7 @@ function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
         }
         if (panel.surfaceKind === 'panel') {
             // 已经在编辑器页签：搬回侧边栏，同时继续聚焦视图（视图一被解析就接管）
+            traceSurface('timer.dock');
             void panel.dockToSidebar();
             revealGameDebuggerView();
         } else {
@@ -210,6 +260,7 @@ function openGameDebugger(options: { fallbackToEditor?: boolean } = {}): void {
             // 兜底：等了 3 秒还没有任何宿主，先开编辑器页签让用户能看到界面
             if (!fellBackToEditor && Date.now() - startedAt >= 3000) {
                 fellBackToEditor = true;
+                traceSurface('timer.fallbackEditor', { elapsed: Date.now() - startedAt });
                 panel.show();
             }
         }
@@ -228,6 +279,7 @@ function registerGameDebuggerAutoOpen(context: vscode.ExtensionContext): void {
     if (!hostBridgeManager) {
         return;
     }
+    traceSurface('autoOpen.registered');
     const subscription = hostBridgeManager.onDidChange(snapshot => {
         if (!vscode.workspace.getConfiguration('mcdev-tools').get<boolean>('gameDebugger.autoOpen', true)) {
             return;
@@ -239,6 +291,7 @@ function registerGameDebuggerAutoOpen(context: vscode.ExtensionContext): void {
             return;
         }
         autoOpenedDebuggerSessionId = readySession.id;
+        traceSurface('autoOpen.sessionReady', { via: 'onDidChange', session: readySession.id });
         openGameDebugger({ fallbackToEditor: true });
     });
     context.subscriptions.push(subscription);
@@ -355,24 +408,6 @@ function registerDebugSessionListener(context: vscode.ExtensionContext): void {
 }
 
 /**
- * 按选中的存档重写 .mcdev.json 的 included_mod_dirs。
- * 默认只提示，不打断启动流程。
- */
-function syncWorldModsForLaunch(workspaceRoot: string): void {
-    try {
-        const result = applyWorldAutoMods(workspaceRoot);
-        if (result.status === 'applied') {
-            const worldName = result.worldDir ? path.basename(result.worldDir) : '';
-            console.log(`已按存档 ${worldName} 装配 ${result.dirs.length} 个 MOD 目录`);
-        } else if (result.status === 'failed') {
-            console.warn(`按存档装配 MOD 失败: ${result.reason ?? result.status}`);
-        }
-    } catch (error) {
-        console.warn('按存档装配 MOD 出错', error);
-    }
-}
-
-/**
  * 启动调试会话（从 GUI 按钮调用）
  * 总是启动新实例，不检查重新附加
  */
@@ -382,9 +417,6 @@ async function startDebugSession(): Promise<void> {
         vscode.window.showErrorMessage('请先打开工作区');
         return;
     }
-
-    // 启动前按选中存档装配 MOD 列表
-    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
 
     // 使用 launchNewInstance 直接启动，不走 provider 的重新附加逻辑
     if (!hostBridgeManager) {
@@ -413,7 +445,15 @@ async function showSidebarPanel(context: vscode.ExtensionContext): Promise<void>
     if (!mcdevConfigStore) {
         throw new Error('.mcdev.json configuration store is not initialized');
     }
-    const provider = new McDevToolsSidebarProvider(context.extensionUri, mcdevConfigStore);
+    if (!renderEngineController) {
+        throw new Error('Render engine controller is not initialized');
+    }
+    const provider = new McDevToolsSidebarProvider(
+        context.extensionUri,
+        mcdevConfigStore,
+        renderEngineController,
+        hostBridgeManager
+    );
     provider.resolveWebviewPanel(panel);
     context.subscriptions.push(provider);
 }
@@ -427,9 +467,6 @@ async function runMcdk(): Promise<void> {
         vscode.window.showErrorMessage('请先打开工作区');
         return;
     }
-
-    // 启动前按选中存档装配 MOD 列表
-    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
 
     const config = vscode.workspace.getConfiguration('mcdev-tools');
     const mcdkPathConfig = config.get<string>('mcdkPath', '');
@@ -539,9 +576,6 @@ async function reloadGameWorld(): Promise<void> {
         return;
     }
 
-    // 重载前按选中存档重新装配 MOD 目录，保证读盘时看到最新配置
-    syncWorldModsForLaunch(workspaceFolder.uri.fsPath);
-
     const session = findInGameBridgeSession();
     if (session && hostBridgeManager) {
         try {
@@ -578,6 +612,20 @@ async function reloadGameWorld(): Promise<void> {
  * 兜底方案：结束 Minecraft / mcdk 进程后按当前配置重新启动。
  */
 async function restartGameProcess(): Promise<void> {
+    if (restartingGame) {
+        vscode.window.showInformationMessage('正在重启游戏，请稍候…');
+        return;
+    }
+    restartingGame = true;
+    try {
+        await restartGameProcessInner();
+    } finally {
+        restartingGame = false;
+    }
+}
+
+/** 重启流程本体：结束进程 → 等端口释放 → 重新拉起 mcdk */
+async function restartGameProcessInner(): Promise<void> {
     const terminal = mcdkTerminal;
     mcdkTerminal = undefined;
     terminal?.dispose();
@@ -611,6 +659,7 @@ export async function deactivate(): Promise<void> {
     gameDebuggerPanel = undefined;
     hostBridgeManager = undefined;
     mcdevConfigStore = undefined;
+    renderEngineController = undefined;
 
     try {
         ptvsd.cleanupAllSessions();

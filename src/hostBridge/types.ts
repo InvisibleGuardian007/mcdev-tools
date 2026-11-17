@@ -42,11 +42,22 @@ export interface HostBridgeSessionSummary {
     methods?: HostBridgeMethodDescriptor[];
 }
 
+/** 本机正在跑的游戏 / mcdk 进程扫描结果，用来判断「有游戏但没连上宿主」。 */
+export interface HostBridgeProcessProbe {
+    minecraftPids: number[];
+    mcdkPids: number[];
+    /** 在跑但没有任何会话绑定的游戏 pid */
+    unboundMinecraftPids: number[];
+    checkedAt: number;
+}
+
 export interface HostBridgeSnapshot {
     status: 'idle' | 'listening' | 'error';
     port?: number;
     error?: string;
     sessions: HostBridgeSessionSummary[];
+    /** 最近一次进程探测结果；还没探测过时缺省。 */
+    gameProcesses?: HostBridgeProcessProbe;
 }
 
 export interface PreparedHostBridgeLaunch {

@@ -27,3 +27,8 @@ Thumbs.db
 
 # 本地临时目录
 /temps
+.alma-snapshots
+
+# 本地工作区配置与备份，不提交
+.mcdev.json
+.mcdev.json.bak-*

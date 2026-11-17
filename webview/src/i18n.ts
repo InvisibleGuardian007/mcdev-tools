@@ -1,6 +1,18 @@
 export interface I18nText {
   runGame: string;
   runGameTooltip: string;
+  restartGame: string;
+  restartGameTooltip: string;
+  restartingGame: string;
+  renderEngine: string;
+  renderEngineOpenGL: string;
+  renderEngineDragon: string;
+  renderEngineDescOpenGL: string;
+  renderEngineDescDragon: string;
+  renderEngineSwitch: string;
+  renderEngineSwitching: string;
+  renderEngineSwitchHint: string;
+  renderEngineUnavailable: string;
   startDebug: string;
   startDebugTooltip: string;
   openGameDebugger: string;
@@ -37,9 +49,9 @@ export interface I18nText {
   worldSelect: string;
   worldSelectHint: string;
   worldSelectRefresh: string;
-  worldAutoMods: string;
   worldAutoModsHint: string;
   worldSyncMods: string;
+  worldSyncModsLabel: string;
   worldManualSection: string;
   worldModUnit: string;
   worldPackUnit: string;
@@ -185,8 +197,11 @@ export interface I18nText {
   hostBridgeResult: string;
   hostBridgeNoResult: string;
   hostBridgeRefresh: string;
+  hostBridgeUnboundGame: string;
   workbenchOpenInEditor: string;
   workbenchDockToSidebar: string;
+  workbenchDockLabelEditor: string;
+  workbenchDockLabelSidebar: string;
   hostBridgeClear: string;
   hostBridgeRequestFailed: string;
   hostBridgeMethodUnavailable: string;
@@ -295,10 +310,31 @@ export interface I18nText {
   pythonProfilerCollecting: string;
   pythonProfilerIdle: string;
   pythonProfilerUnavailable: string;
+  /** 会话已退出，但上一次采集的结果还能看/分析 */
+  pythonProfilerSessionEnded: string;
   pythonProfilerHotFunctions: string;
   pythonProfilerDoubleClickHint: string;
   pythonProfilerScopeMod: string;
+  /** 「MOD」这个词本身（筛选条 aria-label / 提示前缀） */
+  pythonProfilerMod: string;
+  /** 筛选条上「全部 MOD」那颗 chip */
+  pythonProfilerModAll: string;
+  /** 筛选条提示：筛了哪个 MOD，复制给 Agent 就只分析那个 MOD */
+  pythonProfilerModHint: string;
+  pythonProfilerResizeHint: string;
+  pythonProfilerShrinkFunctions: string;
+  pythonProfilerResizeColumnHint: string;
+  pythonProfilerResizeRowHint: string;
+  pythonProfilerDragResizeLabel: string;
+  pythonProfilerFloatHint: string;
+  pythonProfilerColumnDragHint: string;
+  pythonProfilerFloatReset: string;
+  pythonProfilerExpandFunctions: string;
+  /** 已选 MOD 时分析按钮的文案前缀 */
+  pythonProfilerAnalyzeMod: string;
   pythonProfilerScopeAll: string;
+  /** 表格行数超过渲染上限时的提示（{shown} / {total} 为占位符） */
+  pythonProfilerRowsHidden: string;
   pythonProfilerScopeHint: string;
   pythonProfilerScopeEmpty: string;
   pythonProfilerAutoSaved: string;
@@ -309,6 +345,9 @@ export interface I18nText {
   pythonProfilerHistoryRefresh: string;
   pythonProfilerHistoryEmpty: string;
   pythonProfilerHistoryCurrent: string;
+  pythonProfilerHistoryOpen: string;
+  pythonProfilerReviewBanner: string;
+  pythonProfilerReviewExit: string;
   pythonProfilerCompareBase: string;
   pythonProfilerCompareHead: string;
   pythonProfilerCompare: string;
@@ -389,6 +428,47 @@ export interface I18nText {
   nativeProfilerSaved: string;
   nativeProfilerTruncated: string;
   perfMonitorTab: string;
+  debugSwitchesTab: string;
+  debugSwitchesHint: string;
+  debugSwitchesRefresh: string;
+  debugSwitchesLoading: string;
+  debugSwitchesOn: string;
+  debugSwitchesOff: string;
+  debugSwitchesUnknown: string;
+  debugSwitchesEnable: string;
+  debugSwitchesDisable: string;
+  debugSwitchesAllOff: string;
+  debugSwitchesAllOffDone: string;
+  debugSwitchesNoticeOn: string;
+  debugSwitchesNoticeOff: string;
+  debugSwitchesViaOption: string;
+  debugSwitchesViaUi: string;
+  debugSwitchesSettingsOpenHint: string;
+  debugSwitchesUnavailable: string;
+  debugSwitchesErrorUiUnavailable: string;
+  debugSwitchesErrorSettings: string;
+  debugSwitchesErrorSettingsLayout: string;
+  debugSwitchesErrorOpenFailed: string;
+  debugSwitchesErrorSwitchNotFound: string;
+  debugSwitchesErrorOption: string;
+  debugSwitchesErrorUi: string;
+  debugSwitchesErrorChannel: string;
+  debugSwitchesErrorGeneric: string;
+  debugSwitchBounds: string;
+  debugSwitchFindMobs: string;
+  debugSwitchPaths: string;
+  debugSwitchGoalState: string;
+  debugSwitchMobInfo: string;
+  debugSwitchChunkMap: string;
+  debugSwitchDisableTerrain: string;
+  debugSwitchShortBounds: string;
+  debugSwitchShortFindMobs: string;
+  debugSwitchShortPaths: string;
+  debugSwitchShortGoalState: string;
+  debugSwitchShortMobInfo: string;
+  debugSwitchShortChunkMap: string;
+  debugSwitchShortDisableTerrain: string;
+  debugSwitchBarOffline: string;
   perfMonitorInterval: string;
   perfMonitorStart: string;
   perfMonitorStop: string;
@@ -432,17 +512,39 @@ export interface I18nText {
   pythonProfilerAnalyzeHint: string;
   pythonProfilerAnalyzed: string;
   pythonProfilerAnalyzeFallback: string;
+  pythonProfilerCopyLimit: string;
+  pythonProfilerCopyAll: string;
+  pythonProfilerCopyLimitHint: string;
+  pythonProfilerClassesLabel: string;
+  pythonProfilerClassesHint: string;
+  pythonProfilerClassesBoth: string;
+  pythonProfilerClassesOnly: string;
+  pythonProfilerClassesNone: string;
+  pythonProfilerPromptOpened: string;
+  pythonProfilerPromptTitle: string;
+  pythonProfilerPromptStats: string;
+  pythonProfilerPromptHint: string;
+  pythonProfilerPromptWrap: string;
+  pythonProfilerPromptRegenerate: string;
+  pythonProfilerPromptEditor: string;
+  pythonProfilerPromptCopy: string;
+  pythonProfilerPromptClose: string;
   pythonMemoryAnalyze: string;
   pythonMemoryAnalyzeHint: string;
   pythonMemoryAnalyzed: string;
   pythonMemoryAnalyzeFallback: string;
   pythonCombinedTab: string;
   pythonCombinedHint: string;
+  captureFromTopBar: string;
   studioTitle: string;
-  studioStartAll: string;
+  studioStart: string;
   studioStopAll: string;
-  studioStartAllHint: string;
+  studioStartHint: string;
   studioStopAllHint: string;
+  studioScopeBoth: string;
+  studioScopeCpu: string;
+  studioScopeMemory: string;
+  studioScopeHint: string;
   studioActionsHint: string;
   perfMonitorHistoryRestored: string;
 }
@@ -451,6 +553,18 @@ export const i18n: Record<string, I18nText> = {
   en: {
     runGame: 'Run Game',
     runGameTooltip: 'Start Minecraft with mcdk',
+    restartGame: 'Restart',
+    restartGameTooltip: 'Close the running Minecraft and start it again with the current settings',
+    restartingGame: 'Restarting…',
+    renderEngine: 'Render engine',
+    renderEngineOpenGL: 'OpenGL',
+    renderEngineDragon: 'RenderDragon + Vibrant Visuals',
+    renderEngineDescOpenGL: 'Click to switch to RenderDragon + Vibrant Visuals. The game reloads twice; avoid moving the mouse during the switch.',
+    renderEngineDescDragon: 'Click to switch back to OpenGL. When the game exits, options.txt is also reverted automatically to avoid a crash on the next launch.',
+    renderEngineSwitch: 'Switch',
+    renderEngineSwitching: 'Switching…',
+    renderEngineSwitchHint: 'Switch to the other render engine (OpenGL ↔ RenderDragon + Vibrant Visuals)',
+    renderEngineUnavailable: 'Minecraft options.txt was not found',
     startDebug: 'Start Debug',
     startDebugTooltip: 'Start Minecraft with Python debugger attached',
     openGameDebugger: 'Open Game Debugger',
@@ -485,11 +599,11 @@ export const i18n: Record<string, I18nText> = {
     worldName: 'World Name',
     worldFolder: 'World Folder',
     worldSelect: 'Pick a saved world',
-    worldSelectHint: 'Picking a world decides what loads: the mods it references are assembled before launch.',
+    worldSelectHint: 'Picking a world only decides which world launches; launch and restart always use the current mod list.',
     worldSelectRefresh: 'Refresh world list',
-    worldAutoMods: 'Assemble mods from this world on launch',
-    worldAutoModsHint: 'Reads the selected world\'s mod packs and rewrites the mod list before every launch — no manual picking.',
-    worldSyncMods: 'Sync mod list from this world now',
+    worldAutoModsHint: 'Launch, restart and reload all use the current mod list — it is never rebuilt from the world. Only the button below overwrites the list with the packs that world references.',
+    worldSyncMods: 'Overwrite the mod list from this world now (drops entries this world does not reference)',
+    worldSyncModsLabel: 'Overwrite list from this world',
     worldManualSection: 'Manual override',
     worldModUnit: ' mods',
     worldPackUnit: ' packs',
@@ -635,8 +749,11 @@ export const i18n: Record<string, I18nText> = {
     hostBridgeResult: 'Result',
     hostBridgeNoResult: 'No executions yet',
     hostBridgeRefresh: 'Refresh sessions',
+    hostBridgeUnboundGame: 'Game process {pids} is running but not connected to the host bridge. Restart the game from the extension, then refresh.',
     workbenchOpenInEditor: 'Open in an editor tab',
     workbenchDockToSidebar: 'Dock back to the sidebar',
+    workbenchDockLabelEditor: 'Tab',
+    workbenchDockLabelSidebar: 'Dock',
     hostBridgeClear: 'Clear results',
     hostBridgeRequestFailed: 'Execution failed',
     hostBridgeMethodUnavailable: 'Code execution is unavailable',
@@ -746,10 +863,26 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerCollecting: 'Collecting result',
     pythonProfilerIdle: 'Start a capture to inspect Python hotspots',
     pythonProfilerUnavailable: 'Python profiling is unavailable for this session',
+    pythonProfilerSessionEnded: 'Session ended · the last capture is still readable and can be copied for the agent',
     pythonProfilerHotFunctions: 'Hot Functions',
     pythonProfilerDoubleClickHint: 'Double-click a function to open its source',
     pythonProfilerScopeMod: 'Mod functions only',
+    pythonProfilerMod: 'MOD',
+    pythonProfilerModAll: 'All MODs',
+    pythonProfilerModHint: 'Pick one MOD: the list and the report copied for your agent then only cover that MOD',
+    pythonProfilerResizeHint: 'Drag to resize, double-click to reset',
+  pythonProfilerShrinkFunctions: 'Shrink the hot-function area',
+  pythonProfilerResizeColumnHint: 'Drag to resize this column, double-click to reset',
+  pythonProfilerResizeRowHint: 'Drag up/down to change row height, double-click to reset',
+  pythonProfilerDragResizeLabel: 'Drag up/down',
+  pythonProfilerFloatHint: 'Drag this handle to float the hot-function pane anywhere; double-click to dock back',
+  pythonProfilerColumnDragHint: 'Hold and drag this column header left/right to move the column anywhere',
+  pythonProfilerFloatReset: 'Dock back',
+  pythonProfilerExpandFunctions: 'Grow the hot-function area',
+    pythonProfilerAnalyzeMod: 'Copy for the agent:',
     pythonProfilerScopeAll: 'Show engine functions',
+    pythonProfilerRowsHidden:
+        'Showing the top {shown} of {total} functions. The saved report and "copy for agent" always contain all {total}.',
     pythonProfilerScopeHint:
         'Mod functions are shown by default. Click to also list engine / vanilla functions captured in the same profile.',
     pythonProfilerScopeEmpty: 'This profile did not capture engine / vanilla functions.',
@@ -761,6 +894,9 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerHistoryRefresh: 'Refresh captures',
     pythonProfilerHistoryEmpty: 'No captures yet. Stopping a profile records one.',
     pythonProfilerHistoryCurrent: 'current',
+    pythonProfilerHistoryOpen: 'Open this capture for review (read-only)',
+    pythonProfilerReviewBanner: 'Reviewing {time} · read-only; press × on the right to go back',
+    pythonProfilerReviewExit: 'Back to current capture',
     pythonProfilerCompareBase: 'Set as A (baseline)',
     pythonProfilerCompareHead: 'Set as B (compare)',
     pythonProfilerCompare: 'Compare & copy',
@@ -841,6 +977,47 @@ export const i18n: Record<string, I18nText> = {
     nativeProfilerSaved: 'Capture saved',
     nativeProfilerTruncated: 'Largest zones shown',
     perfMonitorTab: "Performance Monitor",
+    debugSwitchesTab: "Debug Switches",
+    debugSwitchesHint: "Toggles apply to the running game immediately. Render overlays briefly open the settings screen.",
+    debugSwitchesRefresh: "Refresh state",
+    debugSwitchesLoading: "Reading state...",
+    debugSwitchesOn: "On",
+    debugSwitchesOff: "Off",
+    debugSwitchesUnknown: "Unknown",
+    debugSwitchesEnable: "Turn on",
+    debugSwitchesDisable: "Turn off",
+    debugSwitchesAllOff: "Turn all off",
+    debugSwitchesAllOffDone: "All debug switches are off",
+    debugSwitchesNoticeOn: "Enabled",
+    debugSwitchesNoticeOff: "Disabled",
+    debugSwitchesViaOption: "engine option",
+    debugSwitchesViaUi: "settings screen",
+    debugSwitchesSettingsOpenHint: "The settings screen is open; toggles will use its debug section directly.",
+    debugSwitchesUnavailable: "Connect to a running game session to change debug switches.",
+    debugSwitchesErrorUiUnavailable: "This launch has no debug settings category; these switches only work in a client launched with debug settings (the same way as your earlier screenshot).",
+    debugSwitchesErrorSettings: "The game settings screen could not be opened.",
+    debugSwitchesErrorSettingsLayout: "The settings screen layout is not recognized (the game update may have changed it).",
+    debugSwitchesErrorOpenFailed: "Could not open the settings screen automatically. Open it manually (ESC → Settings) and click again.",
+    debugSwitchesErrorSwitchNotFound: "The matching toggle was not found in the settings screen.",
+    debugSwitchesErrorOption: "The engine rejected the requested value.",
+    debugSwitchesErrorUi: "The toggle did not reach the requested state.",
+    debugSwitchesErrorChannel: "The in-game debug channel is unavailable.",
+    debugSwitchesErrorGeneric: "Failed to change the debug switch.",
+    debugSwitchBounds: "Show bounding boxes",
+    debugSwitchFindMobs: "Find mobs",
+    debugSwitchPaths: "Show paths",
+    debugSwitchGoalState: "Show goal state",
+    debugSwitchMobInfo: "Show mob info",
+    debugSwitchChunkMap: "Show chunk map",
+    debugSwitchDisableTerrain: "Disable terrain rendering",
+    debugSwitchShortBounds: "Bounds",
+    debugSwitchShortFindMobs: "find mobs",
+    debugSwitchShortPaths: "Paths",
+    debugSwitchShortGoalState: "Goal",
+    debugSwitchShortMobInfo: "Mob info",
+    debugSwitchShortChunkMap: "Chunk map",
+    debugSwitchShortDisableTerrain: "No terrain",
+    debugSwitchBarOffline: "Game offline",
     perfMonitorInterval: "Sample interval",
     perfMonitorStart: "Start monitoring",
     perfMonitorStop: "Stop monitoring",
@@ -881,20 +1058,42 @@ export const i18n: Record<string, I18nText> = {
     perfMonitorAnalyzed: "Report copied to the clipboard",
     perfMonitorAnalyzeFallback: "copying failed, please retry",
     pythonProfilerAnalyze: "Copy for the agent",
-    pythonProfilerAnalyzeHint: "Write the profiling report and copy the whole report to the clipboard, then paste it into your agent",
+    pythonProfilerAnalyzeHint: "Write the profiling report, open it for review, then copy it to the clipboard so you can paste it into your agent",
     pythonProfilerAnalyzed: "Report copied to the clipboard",
     pythonProfilerAnalyzeFallback: "copying failed, please retry",
+    pythonProfilerCopyLimit: "Top",
+    pythonProfilerCopyAll: "All",
+    pythonProfilerCopyLimitHint: "How many functions each section keeps when copying for the agent; the copy never includes the call-relationship table (the saved .md report does). Check All to copy every function.",
+    pythonProfilerClassesLabel: "Class rollup",
+    pythonProfilerClassesHint: "Class / module rollup in the copy. Both: rollup plus function tables. Rollup only: drop the function tables so the agent reads the already-sorted rollup. None: no rollup, the agent aggregates by itself.",
+    pythonProfilerClassesBoth: "Rollup + functions",
+    pythonProfilerClassesOnly: "Rollup only",
+    pythonProfilerClassesNone: "No rollup",
+    pythonProfilerPromptOpened: "Opened in a separate panel ({chars} characters): review or edit there, then click Copy to clipboard",
+    pythonProfilerPromptTitle: "Review before copying",
+    pythonProfilerPromptStats: "{chars} characters · {lines} lines",
+    pythonProfilerPromptHint: "This is exactly what gets copied; edits only affect this copy, the saved .md report is untouched.",
+    pythonProfilerPromptWrap: "Wrap lines",
+    pythonProfilerPromptRegenerate: "Regenerate",
+    pythonProfilerPromptEditor: "Open in editor",
+    pythonProfilerPromptCopy: "Copy to clipboard",
+    pythonProfilerPromptClose: "Close",
     pythonMemoryAnalyze: "Copy for the agent",
     pythonMemoryAnalyzeHint: "Write the memory report and copy the whole report to the clipboard, then paste it into your agent",
     pythonMemoryAnalyzed: "Report copied to the clipboard",
     pythonMemoryAnalyzeFallback: "copying failed, please retry",
     pythonCombinedTab: "Python performance + memory",
-    pythonCombinedHint: "Both panels stay loaded: use the top bar to capture both at once, or each panel's own Start button to capture one",
+    pythonCombinedHint: "Both panels stay loaded: start and stop both captures from the top bar",
+    captureFromTopBar: "Start and stop from the top bar (scope is the list next to it)",
     studioTitle: "Debug Studio",
-    studioStartAll: "Start CPU + memory capture",
+    studioStart: "Start capture",
     studioStopAll: "Stop capture",
-    studioStartAllHint: "Start the Python profiler and the Python memory profiler at the same time",
-    studioStopAllHint: "Stop both captures and show the results",
+    studioStartHint: "Start the captures picked in the list on the left (CPU + memory by default)",
+    studioStopAllHint: "Stop every running capture and show the results",
+    studioScopeBoth: "CPU + memory",
+    studioScopeCpu: "CPU only",
+    studioScopeMemory: "Memory only",
+    studioScopeHint: "What the Start button kicks off; Stop always stops everything that is running",
     studioActionsHint: "Start/stop both Python captures at once; the frame rate, CPU and memory series are switched on the Performance tab",
     perfMonitorHistoryRestored: "Restored the samples recorded earlier in this session",
 
@@ -902,6 +1101,18 @@ export const i18n: Record<string, I18nText> = {
   zh: {
     runGame: '运行游戏',
     runGameTooltip: '使用 mcdk 启动 Minecraft',
+    restartGame: '重启',
+    restartGameTooltip: '关闭正在运行的 Minecraft，按当前配置重新启动',
+    restartingGame: '重启中…',
+    renderEngine: '渲染引擎',
+    renderEngineOpenGL: 'OpenGL',
+    renderEngineDragon: '渲染龙 + 灵动视效',
+    renderEngineDescOpenGL: '点击切换到渲染龙 + 灵动视效；游戏会重载两次，切换期间尽量别动鼠标。',
+    renderEngineDescDragon: '点击切回 OpenGL；退出游戏后插件也会自动回退，避免下次启动闪退。',
+    renderEngineSwitch: '切换',
+    renderEngineSwitching: '切换中…',
+    renderEngineSwitchHint: '切换到另一个渲染引擎（OpenGL ↔ 渲染龙 + 灵动视效）',
+    renderEngineUnavailable: '未找到 Minecraft 的 options.txt',
     startDebug: '启动调试',
     startDebugTooltip: '启动 Minecraft 并附加 Python 调试器',
     openGameDebugger: '打开游戏调试',
@@ -936,11 +1147,11 @@ export const i18n: Record<string, I18nText> = {
     worldName: '世界名称',
     worldFolder: '世界文件夹',
     worldSelect: '选择存档',
-    worldSelectHint: '选中即决定这次加载哪些 mod：该存档引用的 mod 包会在启动前自动装配。',
+    worldSelectHint: '选中存档只决定启动哪个存档；启动、重启与重载一律以当前 MOD 目录列表为准。',
     worldSelectRefresh: '刷新存档列表',
-    worldAutoMods: '启动时按此存档装配 MOD',
-    worldAutoModsHint: '每次启动前读取该存档引用的 mod 包并重写 MOD 目录列表，无需手动勾选。',
-    worldSyncMods: '立即按此存档同步 MOD 列表',
+    worldAutoModsHint: '启动、重启与重载都用当前 MOD 目录列表，不再从存档回写列表。只有点下面的按钮才会按该存档引用的 mod 包覆盖列表。',
+    worldSyncMods: '立即按此存档精确重写 MOD 列表（会移除该存档未引用的目录）',
+    worldSyncModsLabel: '按此存档覆盖 MOD 列表',
     worldManualSection: '手动指定（高级）',
     worldModUnit: ' 个 MOD',
     worldPackUnit: ' 个包',
@@ -1086,8 +1297,11 @@ export const i18n: Record<string, I18nText> = {
     hostBridgeResult: '执行结果',
     hostBridgeNoResult: '暂无执行记录',
     hostBridgeRefresh: '刷新会话',
+    hostBridgeUnboundGame: '检测到游戏进程 {pids} 正在运行，但它没有连接到宿主桥接（会话已失效）。请在扩展里重新启动这个游戏，再点刷新。',
     workbenchOpenInEditor: '在编辑器标签页打开',
     workbenchDockToSidebar: '停靠回侧边栏',
+    workbenchDockLabelEditor: '页签',
+    workbenchDockLabelSidebar: '侧栏',
     hostBridgeClear: '清空结果',
     hostBridgeRequestFailed: '执行失败',
     hostBridgeMethodUnavailable: '当前版本不支持代码执行',
@@ -1197,10 +1411,25 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerCollecting: '正在整理结果',
     pythonProfilerIdle: '开始一次采样以查看 Python 性能热点',
     pythonProfilerUnavailable: '当前会话无法使用 Python 性能分析',
+    pythonProfilerSessionEnded: '会话已结束 · 上一次采集仍可查看，也可以复制给 Agent',
     pythonProfilerHotFunctions: '热点函数',
     pythonProfilerDoubleClickHint: '双击函数可跳转到代码',
     pythonProfilerScopeMod: '仅 mod 函数',
+    pythonProfilerMod: 'MOD',
+    pythonProfilerModAll: '全部 MOD',
+    pythonProfilerModHint: '选中某个 MOD 后，下面的列表和复制给 Agent 的报告都只包含该 MOD',
+    pythonProfilerResizeHint: '拖动调整高度，双击恢复默认',
+  pythonProfilerShrinkFunctions: '收起一点（热点函数区变矮）',
+  pythonProfilerResizeColumnHint: '拖动改这一列宽度（函数名/路径），双击复位',
+  pythonProfilerResizeRowHint: '左右不动、上下拖这里改行高（往上变矮多看行，往下变高文字完整），双击复位',
+  pythonProfilerDragResizeLabel: '上下拖动这里',
+  pythonProfilerFloatHint: '拖这个把手可以把「热点函数」整块浮起来摆到任意位置，双击把手复位',
+  pythonProfilerColumnDragHint: '按住这列表头左右拖动，可以把「函数」列换到任意位置',
+  pythonProfilerFloatReset: '收回原位',
+  pythonProfilerExpandFunctions: '展开一点（热点函数区变高）',
+    pythonProfilerAnalyzeMod: '复制给 Agent：',
     pythonProfilerScopeAll: '含原版函数',
+    pythonProfilerRowsHidden: '只列出耗时最高的 {shown} 个函数，共 {total} 个。保存的报告和「复制给 Agent」里始终是全部 {total} 个。',
     pythonProfilerScopeHint: '默认只看 mod 自己的函数，点击可同时列出本次采集到的引擎 / 原版函数。',
     pythonProfilerScopeEmpty: '本次采集没有捕获到引擎 / 原版函数。',
     pythonProfilerAutoSaved: '报告已自动保存到',
@@ -1211,6 +1440,9 @@ export const i18n: Record<string, I18nText> = {
     pythonProfilerHistoryRefresh: '刷新采集历史',
     pythonProfilerHistoryEmpty: '还没有采集记录，停止一次采集后就会记下来。',
     pythonProfilerHistoryCurrent: '当前',
+    pythonProfilerHistoryOpen: '点击回看这次采集（只读）',
+    pythonProfilerReviewBanner: '回看 {time} · 只读，点右侧 × 返回当前采集',
+    pythonProfilerReviewExit: '返回当前采集',
     pythonProfilerCompareBase: '设为 A（基线）',
     pythonProfilerCompareHead: '设为 B（对比）',
     pythonProfilerCompare: '对比并复制',
@@ -1291,6 +1523,47 @@ export const i18n: Record<string, I18nText> = {
     nativeProfilerSaved: '采样已保存',
     nativeProfilerTruncated: '仅显示耗时最高的区间',
     perfMonitorTab: "性能监测",
+    debugSwitchesTab: "调试开关",
+    debugSwitchesHint: "点一下立即作用到当前游戏；渲染类开关会短暂打开设置页。",
+    debugSwitchesRefresh: "刷新状态",
+    debugSwitchesLoading: "正在读取状态...",
+    debugSwitchesOn: "已开",
+    debugSwitchesOff: "已关",
+    debugSwitchesUnknown: "未知",
+    debugSwitchesEnable: "开",
+    debugSwitchesDisable: "关",
+    debugSwitchesAllOff: "全部关闭",
+    debugSwitchesAllOffDone: "已全部关闭",
+    debugSwitchesNoticeOn: "已开启",
+    debugSwitchesNoticeOff: "已关闭",
+    debugSwitchesViaOption: "引擎选项",
+    debugSwitchesViaUi: "设置页",
+    debugSwitchesSettingsOpenHint: "设置页已打开，本次会直接切它里面的调试开关。",
+    debugSwitchesUnavailable: "连接到运行中的游戏会话后才能切换调试开关。",
+    debugSwitchesErrorUiUnavailable: "当前启动没有「调试」设置分类，这组开关只在带调试设置的客户端里可用（和你截图那次一样的启动方式）。",
+    debugSwitchesErrorSettings: "没能打开游戏设置页。",
+    debugSwitchesErrorSettingsLayout: "设置页结构无法识别（游戏更新可能改了布局）。",
+    debugSwitchesErrorOpenFailed: "没能自动打开设置页；请先手动打开设置页（ESC → 设置）再点一次。",
+    debugSwitchesErrorSwitchNotFound: "设置页里没找到对应的开关控件。",
+    debugSwitchesErrorOption: "引擎拒绝了这个开关的值。",
+    debugSwitchesErrorUi: "开关没有切到请求的状态。",
+    debugSwitchesErrorChannel: "游戏内调试通道不可用。",
+    debugSwitchesErrorGeneric: "切换调试开关失败。",
+    debugSwitchBounds: "能见度边界框",
+    debugSwitchFindMobs: "find mobs",
+    debugSwitchPaths: "能见度路径",
+    debugSwitchGoalState: "能见度目标状态",
+    debugSwitchMobInfo: "渲染生物信息状态",
+    debugSwitchChunkMap: "显示区块地图",
+    debugSwitchDisableTerrain: "禁用地形绘制",
+    debugSwitchShortBounds: "边界框",
+    debugSwitchShortFindMobs: "find mobs",
+    debugSwitchShortPaths: "路径",
+    debugSwitchShortGoalState: "目标",
+    debugSwitchShortMobInfo: "生物信息",
+    debugSwitchShortChunkMap: "区块地图",
+    debugSwitchShortDisableTerrain: "禁地形",
+    debugSwitchBarOffline: "游戏未启动",
     perfMonitorInterval: "采样间隔",
     perfMonitorStart: "开始监测",
     perfMonitorStop: "停止监测",
@@ -1331,20 +1604,42 @@ export const i18n: Record<string, I18nText> = {
     perfMonitorAnalyzed: "报告已复制到剪贴板",
     perfMonitorAnalyzeFallback: "复制失败，请重试",
     pythonProfilerAnalyze: "复制给 Agent 分析",
-    pythonProfilerAnalyzeHint: "生成性能报告并把完整报告内容复制到剪贴板，直接粘给 Agent 即可",
+    pythonProfilerAnalyzeHint: "生成性能报告并打开预览，确认（可顺手改）后再复制到剪贴板，粘给 Agent 即可",
     pythonProfilerAnalyzed: "报告已复制到剪贴板",
     pythonProfilerAnalyzeFallback: "复制失败，请重试",
+    pythonProfilerCopyLimit: "每段前",
+    pythonProfilerCopyAll: "全部",
+    pythonProfilerCopyLimitHint: "「复制给 Agent」时每段保留总耗时最高的前 N 个函数；复制正文不含「调用关系」表（保存的 .md 报告里才有）。勾选「全部」则每段都整份复制。",
+    pythonProfilerClassesLabel: "类/模块汇总",
+    pythonProfilerClassesHint: "复制正文里「类 / 模块汇总」的形态。汇总 + 函数表：两者都给；仅汇总：删掉三段函数表，Agent 直接读已排好序的汇总；不生成汇总：交给 Agent 自己聚合。",
+    pythonProfilerClassesBoth: "汇总 + 函数表",
+    pythonProfilerClassesOnly: "仅汇总",
+    pythonProfilerClassesNone: "不生成汇总",
+    pythonProfilerPromptOpened: "已打开独立面板（{chars} 字）：在那儿先看、可直接改，确认后再点「复制到剪贴板」",
+    pythonProfilerPromptTitle: "复制给 Agent 前检查",
+    pythonProfilerPromptStats: "{chars} 字 · {lines} 行",
+    pythonProfilerPromptHint: "下面就是要复制的全文，可以直接改；改动只影响这次复制，落盘的 .md 报告不变。",
+    pythonProfilerPromptWrap: "自动换行",
+    pythonProfilerPromptRegenerate: "重新生成",
+    pythonProfilerPromptEditor: "在编辑器中打开",
+    pythonProfilerPromptCopy: "复制到剪贴板",
+    pythonProfilerPromptClose: "关闭",
     pythonMemoryAnalyze: "复制给 Agent 分析",
     pythonMemoryAnalyzeHint: "生成内存报告并把完整报告内容复制到剪贴板，直接粘给 Agent 即可",
     pythonMemoryAnalyzed: "报告已复制到剪贴板",
     pythonMemoryAnalyzeFallback: "复制失败，请重试",
     pythonCombinedTab: "Python 性能+内存",
-    pythonCombinedHint: "两个采集都常驻：顶部按钮可同时启动，也可以用各自工具条单独开始/停止",
+    pythonCombinedHint: "两个采集都常驻：开始和停止都用顶部按钮，这里只设置参数",
+    captureFromTopBar: "用顶部按钮启停，采哪个看顶部下拉",
     studioTitle: "性能调试面板",
-    studioStartAll: "开始采集（性能+内存）",
+    studioStart: "开始采集",
     studioStopAll: "停止采集",
-    studioStartAllHint: "同时启动 Python 性能采样与 Python 内存采样",
-    studioStopAllHint: "同时停止性能采样与内存采样并出结果",
+    studioStartHint: "按左边选的范围启动采集；默认「性能+内存」两个一起采",
+    studioStopAllHint: "把正在跑的采集都停掉并出结果",
+    studioScopeBoth: "性能+内存",
+    studioScopeCpu: "仅性能",
+    studioScopeMemory: "仅内存",
+    studioScopeHint: "决定「开始采集」启动哪几个采集器；「停止采集」总是停在跑的那些",
     studioActionsHint: "一键同时启停 Python 性能与内存；帧率 / CPU / 内存曲线在「性能监测」页签自己开关",
     perfMonitorHistoryRestored: "已恢复本会话此前记录的采样",
   },

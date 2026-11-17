@@ -7,7 +7,7 @@ export interface WorldPackIds {
     resource: string[];
 }
 
-/** 按存档装配 MOD 的结果 */
+/** 按存档覆盖 MOD 列表的结果 */
 export interface WorldModResolution {
     /** 需要装配的 mod 目录；工作区根目录统一写成 './' */
     dirs: string[];
@@ -223,10 +223,14 @@ export interface WorldAutoModsResult {
     reason?: string;
 }
 
+function entryDirValue(entry: unknown): string {
+    return typeof entry === 'string' ? entry : String((entry as { path?: unknown })?.path ?? '');
+}
+
 function mergeModDirEntries(previous: unknown[], nextDirs: string[]): unknown[] {
     const byKey = new Map<string, unknown>();
     for (const entry of previous) {
-        const value = typeof entry === 'string' ? entry : String((entry as { path?: unknown })?.path ?? '');
+        const value = entryDirValue(entry);
         if (!value) {
             continue;
         }
@@ -236,20 +240,18 @@ function mergeModDirEntries(previous: unknown[], nextDirs: string[]): unknown[] 
 }
 
 /**
- * 按 .mcdev.json 里选中的存档，把 included_mod_dirs 重写成该存档实际引用的 mod 目录。
- * force=true 时忽略 world_auto_mods 开关（用户手动点“立即同步”）。
+ * 按选中存档精确重写 included_mod_dirs（只有用户手动点「按此存档覆盖 MOD 列表」才调用）。
+ * 启动 / 重启 / 重载存档都不再调用它：那些场景一律以当前列表为准，
+ * 一旦拿存档里的旧引用回写，刚加进面板、存档还没记录的 MOD 就会被启动前的同步吃掉。
  */
 export function applyWorldAutoMods(
     workspaceRoot: string,
-    options: { force?: boolean; worldFolder?: string; worldsRoot?: string } = {},
+    options: { worldFolder?: string; worldsRoot?: string } = {},
 ): WorldAutoModsResult {
     const configPath = path.join(workspaceRoot, '.mcdev.json');
     const config = readJsonFile(configPath) as Record<string, unknown> | undefined;
     if (!config) {
         return { status: 'failed', dirs: [], matchedPacks: 0, unknownPacks: [], reason: '读取 .mcdev.json 失败' };
-    }
-    if (config.world_auto_mods === false && !options.force) {
-        return { status: 'skipped', dirs: [], matchedPacks: 0, unknownPacks: [], reason: '已关闭按存档装配' };
     }
     const folder = String(options.worldFolder ?? config.world_folder_name ?? '').trim();
     const worldsRoot = options.worldsRoot ?? resolveWorldsRoot();
@@ -277,11 +279,12 @@ export function applyWorldAutoMods(
             reason: '该存档引用的 MOD 在本地都找不到',
         };
     }
-    const nextEntries = mergeModDirEntries(previous, resolution.dirs);
+    const nextDirs = resolution.dirs;
+    const nextEntries = mergeModDirEntries(previous, nextDirs);
     if (JSON.stringify(nextEntries) === JSON.stringify(previous)) {
         return {
             status: 'unchanged',
-            dirs: resolution.dirs,
+            dirs: nextDirs,
             worldDir,
             matchedPacks: resolution.matchedPacks,
             unknownPacks: resolution.unknownPacks,
@@ -291,7 +294,7 @@ export function applyWorldAutoMods(
     fs.writeFileSync(configPath, JSON.stringify(config, null, 4) + '\n', 'utf8');
     return {
         status: 'applied',
-        dirs: resolution.dirs,
+        dirs: nextDirs,
         worldDir,
         matchedPacks: resolution.matchedPacks,
         unknownPacks: resolution.unknownPacks,

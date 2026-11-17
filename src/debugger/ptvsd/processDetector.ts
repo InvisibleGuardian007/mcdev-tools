@@ -95,8 +95,10 @@ function runPowerShell(script: string): Promise<Array<Record<string, unknown>> |
 }
 
 const PROCESS_LIST_TTL_MS = 1000;
+const PROCESS_ALIVE_TTL_MS = 500;
 
 let lastQuery: { at: number; processes: MinecraftProcess[] } | undefined;
+let lastAliveQuery: { at: number; alive: boolean } | undefined;
 
 export async function findMinecraftProcesses(): Promise<MinecraftProcess[]> {
     if (lastQuery && Date.now() - lastQuery.at < PROCESS_LIST_TTL_MS) {
@@ -112,6 +114,30 @@ export async function findMinecraftProcesses(): Promise<MinecraftProcess[]> {
 export async function isMinecraftRunning(): Promise<boolean> {
     const processes = await findMinecraftProcesses();
     return processes.length > 0;
+}
+
+/**
+ * 轻量存活检查（tasklist，比 PowerShell CIM 快得多），供渲染引擎守卫低频轮询使用。
+ * 只回答「有没有在跑」，不需要进程路径/构建类型。
+ */
+export function isMinecraftProcessAlive(): Promise<boolean> {
+    if (lastAliveQuery && Date.now() - lastAliveQuery.at < PROCESS_ALIVE_TTL_MS) {
+        return Promise.resolve(lastAliveQuery.alive);
+    }
+    return new Promise(resolve => {
+        cp.execFile(
+            'tasklist',
+            ['/FI', `IMAGENAME eq ${PROCESS_IMAGE_NAME}`, '/NH', '/FO', 'CSV'],
+            { encoding: 'utf8', windowsHide: true, timeout: 5000 },
+            (error, stdout) => {
+                const alive = !error
+                    && typeof stdout === 'string'
+                    && stdout.toLowerCase().includes(PROCESS_IMAGE_NAME.toLowerCase());
+                lastAliveQuery = { at: Date.now(), alive };
+                resolve(alive);
+            }
+        );
+    });
 }
 
 const MAX_TRACKED_PROCESSES = 32;
@@ -162,6 +188,7 @@ const processKindCache = new ProcessKindCache();
 
 export function clearProcessDetectionCache(): void {
     lastQuery = undefined;
+    lastAliveQuery = undefined;
     processKindCache.clear();
 }
 

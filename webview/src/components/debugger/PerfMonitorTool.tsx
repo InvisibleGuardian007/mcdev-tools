@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { I18nText } from '../../i18n';
 import { HostBridgeSessionSummary, PerfMonitorSample, PerfMonitorState } from '../../types';
 import { vscode } from '../../vscode';
+import { createRequestId } from '../../utils/requestId';
 
 interface PerfMonitorToolProps {
   session?: HostBridgeSessionSummary;
@@ -26,10 +27,6 @@ const MAX_RENDERED_POINTS = 640;
 const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 180;
 const VIEW_PADDING = 6;
-
-function createRequestId(): string {
-  return `perf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 function formatMegabytes(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`;
@@ -248,7 +245,7 @@ export function PerfMonitorTool({ session, t, autoStart }: PerfMonitorToolProps)
     }
     vscode.postMessage({
       type: 'perfMonitorActivate',
-      requestId: createRequestId(),
+      requestId: createRequestId('perf'),
       sessionId: session.id,
       connectionGeneration: session.connectionGeneration,
     });
@@ -297,7 +294,7 @@ export function PerfMonitorTool({ session, t, autoStart }: PerfMonitorToolProps)
             setPending(true);
             vscode.postMessage({
               type: 'perfMonitorStart',
-              requestId: createRequestId(),
+              requestId: createRequestId('perf'),
               sessionId: session.id,
               connectionGeneration: session.connectionGeneration,
               intervalMs: next.intervalMs ?? intervalMs,
@@ -413,7 +410,7 @@ export function PerfMonitorTool({ session, t, autoStart }: PerfMonitorToolProps)
     }
     vscode.postMessage({
       type,
-      requestId: createRequestId(),
+      requestId: createRequestId('perf'),
       sessionId: session.id,
       connectionGeneration: session.connectionGeneration,
       intervalMs,

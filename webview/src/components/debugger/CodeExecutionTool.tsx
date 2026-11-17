@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { I18nText } from '../../i18n';
 import { HostBridgeSessionSummary } from '../../types';
 import { vscode } from '../../vscode';
+import { createRequestId } from '../../utils/requestId';
 
 interface CodeExecutionToolProps {
   session?: HostBridgeSessionSummary;
@@ -212,12 +213,6 @@ export function CodeExecutionTool({ session, t }: CodeExecutionToolProps) {
       </section>
     </div>
   );
-}
-
-function createRequestId(): string {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}:${Math.random().toString(16).slice(2)}`;
 }
 
 function formatResult(value: unknown): string {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { WorkbenchApp, CaptureSync } from './WorkbenchApp';
+import { WorkbenchApp, CaptureScope, CaptureSync } from './WorkbenchApp';
 import { STUDIO_TOOLS } from './tools';
 import { i18n } from './i18n';
 
@@ -8,10 +8,12 @@ function StudioApp() {
   const t = i18n[language] || i18n.en;
   const nonceRef = useRef(0);
   const [sync, setSync] = useState<CaptureSync>();
+  // 「开始采集」只启动这里选中的采集器；停止则一律停在跑的（见两个工具的 sync 处理）
+  const [scope, setScope] = useState<CaptureScope>('both');
 
   const trigger = (kind: CaptureSync['kind']) => {
     nonceRef.current += 1;
-    setSync({ kind, nonce: nonceRef.current });
+    setSync({ kind, scope, nonce: nonceRef.current });
   };
 
   return (
@@ -20,19 +22,32 @@ function StudioApp() {
       title={t.studioTitle}
       icon="codicon-dashboard"
       sync={sync}
+      topBarCapture
       actions={({ session }) => {
         const ready = Boolean(session?.connected && session.state === 'game_ready');
         return (
           <div className="studio-actions">
+            <select
+              className="studio-action studio-action--scope"
+              value={scope}
+              disabled={!ready}
+              onChange={event => setScope(event.target.value as CaptureScope)}
+              title={t.studioScopeHint}
+              aria-label={t.studioScopeHint}
+            >
+              <option value="both">{t.studioScopeBoth}</option>
+              <option value="cpu">{t.studioScopeCpu}</option>
+              <option value="memory">{t.studioScopeMemory}</option>
+            </select>
             <button
               type="button"
               className="studio-action studio-action--start"
               disabled={!ready}
               onClick={() => trigger('start')}
-              title={t.studioStartAllHint}
+              title={t.studioStartHint}
             >
               <span className="codicon codicon-record" />
-              <span>{t.studioStartAll}</span>
+              <span>{t.studioStart}</span>
             </button>
             <button
               type="button"

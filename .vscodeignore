@@ -17,3 +17,13 @@ native/**
 scripts/**
 temps/**
 WEBVIEW_REFACTOR.md
+# 本地排查留下的临时文件与打出来的包，不要进 vsix
+.mcdev.json
+.tmp-*
+.*.txt
+.*.png
+.*.ps1
+*.vsix
+.alma-snapshots/**
+*.log
+.verify.mjs

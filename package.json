@@ -2,7 +2,7 @@
     "name": "mcdev-tools-custom",
     "displayName": "MC Dev Tools",
     "description": "一个用于我的世界中国版模组开发的调试工具插件。",
-    "version": "0.1.62",
+    "version": "0.1.136",
     "author": "Dofes",
     "publisher": "dofes",
     "repository": {
@@ -54,6 +54,11 @@
                 "icon": "$(play)"
             },
             {
+                "command": "mcdev-tools.restartGame",
+                "title": "MC Dev Tools: 重启游戏",
+                "icon": "$(debug-restart)"
+            },
+            {
                 "command": "mcdev-tools.showSidebarPanel",
                 "title": "MC Dev Tools: 打开侧边栏面板",
                 "icon": "$(window)"
@@ -67,6 +72,11 @@
                 "command": "mcdev-tools.openPerfMonitor",
                 "title": "MC Dev Tools: 打开性能监测窗口",
                 "icon": "$(graph)"
+            },
+            {
+                "command": "mcdev-tools.toggleRenderEngine",
+                "title": "MC Dev Tools: 渲染引擎切回 OpenGL",
+                "icon": "$(paintcan)"
             }
         ],
         "debuggers": [
@@ -262,6 +272,16 @@
                     "default": "",
                     "description": "可选：mcdk.exe 的路径（留空使用插件内置 bin/native/windows/x64/mcdk.exe 或相对于工作区路径）"
                 },
+                "mcdev-tools.renderEngine.optionsPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "可选：Minecraft options.txt 的完整路径。留空时使用 %APPDATA%\\MinecraftPE_Netease\\minecraftpe\\options.txt。"
+                },
+                "mcdev-tools.renderEngine.autoRevertOnExit": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "切到「渲染龙 + 灵动视效」后，游戏关闭时自动把渲染引擎切回 OpenGL，并恢复进入前的图形模式。"
+                },
                 "mcdev-tools.hostBridge.port": {
                     "type": "number",
                     "default": 19190,
@@ -372,7 +392,7 @@
                 {
                     "id": "mcdev-tools",
                     "title": "MC Dev Tools Config",
-                    "icon": "./images/perf.svg"
+                    "icon": "./images/icon.svg"
                 }
             ],
             "auxiliarybar": [
@@ -415,16 +435,17 @@
         "native:build": "cmake --build native/tracy-bridge/build/x64-msvc-release",
         "native:test": "ctest --test-dir native/tracy-bridge/build/x64-msvc-release --output-on-failure",
         "native:install": "cmake --install native/tracy-bridge/build/x64-msvc-release",
-        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/serverLifecycle.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/mcpAgent.test.js out/hostBridge/dshIntegration.test.js out/hostBridge/magpieIntegration.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/hostBridge/worldMods.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js out/sidebar/worlds.test.js",
+        "test:host-bridge": "npm run compile && node --test out/hostBridge/protocol.test.js out/hostBridge/serverLifecycle.test.js out/hostBridge/uiDebugger.test.js out/hostBridge/debugSwitches.test.js out/hostBridge/debugSwitchSettings.test.js out/hostBridge/latestOperationQueue.test.js out/hostBridge/pythonProfiler.test.js out/hostBridge/pythonProfilerReport.test.js out/hostBridge/pythonProfilerHistory.test.js out/hostBridge/mcpAgent.test.js out/hostBridge/dshIntegration.test.js out/hostBridge/magpieIntegration.test.js out/hostBridge/pythonMemoryProfiler.test.js out/hostBridge/pythonMemoryProfilerReport.test.js out/hostBridge/nativeProfilerPortDiscovery.test.js out/hostBridge/nativeProfilerCapture.test.js out/hostBridge/nativeProfilerReport.test.js out/hostBridge/perfMonitor.test.js out/hostBridge/worldMods.test.js out/hostBridge/processLiveness.test.js out/debugger/ptvsd/buildIdentity.test.js out/debugger/ptvsd/processDetector.test.js out/utils/mcdevDirectory.test.js out/sidebar/worlds.test.js out/renderEngine/options.test.js",
         "lint": "eslint src --ext ts"
     },
     "dependencies": {
         "jsonc-parser": "^3.2.0"
     },
     "devDependencies": {
-        "@types/vscode": "^1.85.0",
         "@types/node": "^18.x",
+        "@types/vscode": "^1.85.0",
         "@vscode/codicons": "^0.0.36",
+        "@vscode/vsce": "^4.1.1",
         "typescript": "^5.3.0"
     }
 }

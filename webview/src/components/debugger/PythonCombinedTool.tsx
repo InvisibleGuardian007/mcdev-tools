@@ -9,6 +9,8 @@ export interface PythonCombinedToolProps {
   session?: HostBridgeSessionSummary;
   t: I18nText;
   sync?: CaptureSync;
+  /** 采集由顶部操作条驱动（集成面板），工具条里不再重复放按钮 */
+  topBarCapture?: boolean;
 }
 
 type CombinedView = 'profiler' | 'memory';
@@ -16,9 +18,9 @@ type CombinedView = 'profiler' | 'memory';
 /**
  * Python 性能 + 内存合并页签：
  * - 两个工具都常驻挂载（只是隐藏其中一个），所以「同时采集」能一次启动两边，切回来结果也还在；
- * - 各自的工具条里仍然可以单独开始/停止，互不影响。
+ * - 启停统一交给顶部「开始采集（性能+内存）/ 停止采集」，工具条里不再重复放按钮。
  */
-export function PythonCombinedTool({ session, t, sync }: PythonCombinedToolProps) {
+export function PythonCombinedTool({ session, t, sync, topBarCapture }: PythonCombinedToolProps) {
   const [view, setView] = useState<CombinedView>('profiler');
   return (
     <div className="python-combined">
@@ -49,10 +51,10 @@ export function PythonCombinedTool({ session, t, sync }: PythonCombinedToolProps
         </span>
       </div>
       <div className="python-combined-pane" style={{ display: view === 'profiler' ? 'flex' : 'none' }}>
-        <PythonProfilerTool session={session} t={t} sync={sync} />
+        <PythonProfilerTool session={session} t={t} sync={sync} topBarCapture={topBarCapture} />
       </div>
       <div className="python-combined-pane" style={{ display: view === 'memory' ? 'flex' : 'none' }}>
-        <PythonMemoryProfilerTool session={session} t={t} sync={sync} />
+        <PythonMemoryProfilerTool session={session} t={t} sync={sync} topBarCapture={topBarCapture} />
       </div>
     </div>
   );

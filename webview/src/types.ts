@@ -21,8 +21,6 @@ export interface McdevData {
   log_protocol?: 0 | 1;
   world_name?: string;
   world_folder_name?: string;
-  /** 启动时按选中存档自动装配 MOD 目录（默认开启） */
-  world_auto_mods?: boolean;
   world_seed?: number | null;
   world_type?: number;
   game_mode?: number;
@@ -106,11 +104,21 @@ export interface HostBridgeSessionSummary {
   methods?: HostBridgeMethodDescriptor[];
 }
 
+/** 本机正在跑的游戏 / mcdk 进程扫描结果，用来判断「有游戏但没连上宿主」。 */
+export interface HostBridgeProcessProbe {
+  minecraftPids: number[];
+  mcdkPids: number[];
+  /** 在跑但没有任何会话绑定的游戏 pid */
+  unboundMinecraftPids: number[];
+  checkedAt: number;
+}
+
 export interface HostBridgeSnapshot {
   status: 'idle' | 'listening' | 'error';
   port?: number;
   error?: string;
   sessions: HostBridgeSessionSummary[];
+  gameProcesses?: HostBridgeProcessProbe;
 }
 
 export type PythonProfilerTarget = 'client' | 'server' | 'all';
@@ -130,6 +138,17 @@ export interface PythonProfilerFunction {
   contextName: string;
   /** true = 当前 mod 的脚本；false = 引擎 / 原版函数（默认折叠） */
   isProject?: boolean;
+  /** 归属的 mod（运行时脚本目录名）；'' / undefined = 引擎或无法归属 */
+  mod?: string;
+}
+
+/** 按 mod 聚合的结果统计 */
+export interface PythonProfilerModSummary {
+  name: string;
+  functions: number;
+  calls: number;
+  selfTime: number;
+  totalTime: number;
 }
 
 export interface PythonProfilerCall {
@@ -149,6 +168,8 @@ export interface PythonProfilerResult {
   truncated: boolean;
   functions: PythonProfilerFunction[];
   calls: PythonProfilerCall[];
+  /** 按 mod 聚合的函数/耗时统计（只含当前 mod 的脚本） */
+  mods?: PythonProfilerModSummary[];
 }
 
 /** 采集历史里保存的最小函数记录 */
@@ -156,6 +177,19 @@ export interface PythonProfilerHistoryFunction {
   name: string;
   module: string;
   line: number;
+  calls: number;
+  selfTime: number;
+  totalTime: number;
+  /** 是否属于项目的 MOD 脚本；旧采集没有这个字段，按 MOD 函数处理 */
+  isProject?: boolean;
+  /** 该函数采自哪一端；「全部」采集时同一份历史里两端都有，旧采集没有这个字段 */
+  target?: 'client' | 'server';
+}
+
+/** 采集历史里的一条调用边：两端都是 functions 里的下标 */
+export interface PythonProfilerHistoryCall {
+  caller: number;
+  callee: number;
   calls: number;
   selfTime: number;
   totalTime: number;
@@ -174,6 +208,13 @@ export interface PythonProfilerHistoryEntry {
   top?: PythonProfilerHistoryFunction;
 }
 
+/** 历史回看：带上完整函数明细的采集记录 */
+export interface PythonProfilerHistoryDetail extends PythonProfilerHistoryEntry {
+  functions: PythonProfilerHistoryFunction[];
+  /** 调用关系（下标指向上面的 functions）；旧采集没有这个字段 */
+  calls?: PythonProfilerHistoryCall[];
+}
+
 export interface PythonProfilerCompletedState {
   target: PythonProfilerTarget;
   clock: PythonProfilerClock;
@@ -181,7 +222,8 @@ export interface PythonProfilerCompletedState {
   result: PythonProfilerResult;
   report?: {
     markdownPath: string;
-    svgPath: string;
+    /** 按 mod 单独出报告时只有 Markdown，没有 SVG */
+    svgPath?: string;
   };
   reportError?: string;
   /** 采集历史 id（A/B 对比用） */

@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { getNonce } from '../utils';
 import { ensureMcdevDirectory } from '../utils/mcdevDirectory';
-import { resolveExtensionLabel } from '../utils/buildInfo';
+import { resolveExtensionLabel, resolveExtensionVersion } from '../utils/buildInfo';
+import { traceSurface } from '../hostBridge/surfaceTrace';
 import { McdevConfigSnapshot, McdevConfigStore } from '../config';
 import {
     getGameExecutablePaths,
@@ -20,6 +21,19 @@ import {
 } from '../hostBridge/worldMods';
 import { buildAgentBrief, buildMcpUrl, probeMcpServer } from '../hostBridge/mcpAgent';
 import { clearProcessDetectionCache, isModpcRunning } from '../debugger/ptvsd/processDetector';
+import { RenderEngineController } from '../renderEngine';
+import { HostBridgeManager } from '../hostBridge/manager';
+import type { HostBridgeSessionSummary } from '../hostBridge/types';
+import {
+    buildDebugSwitchSetCode,
+    buildDebugSwitchesStateCode,
+    DEBUG_SWITCHES,
+    findDebugSwitch,
+    type DebugSwitchSetResult,
+    parseDebugSwitchSetResult,
+    parseDebugSwitchesState,
+} from '../hostBridge/debugSwitches';
+import { ensureDebugSettingsOpen } from '../hostBridge/debugSwitchSettings';
 import { removeDshMcpEntries } from '../hostBridge/dshIntegration';
 import { buildMagpieAddArgs, buildMagpieSyncArgs, parseWrittenAgents, resolveMagpieExecutable, runMagpie } from '../hostBridge/magpieIntegration';
 import { copyToClipboard } from '../utils/clipboard';
@@ -34,10 +48,14 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
     private _configSubscription?: vscode.Disposable;
     private _reviewProcess?: cp.ChildProcess;
     private _messageSubscription?: vscode.Disposable;
+    private _renderEngineSubscription?: vscode.Disposable;
+    private _hostBridgeSubscription?: { dispose(): void };
     
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _configStore: McdevConfigStore
+        private readonly _configStore: McdevConfigStore,
+        private readonly _renderEngine: RenderEngineController,
+        private readonly _hostBridge: HostBridgeManager
     ) {}
 
     public resolveWebviewView(
@@ -63,6 +81,15 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
 
             this.setupMessageHandler(webview);
             this.setupConfigSubscription(webview);
+            this.setupRenderEngineSubscription(webview);
+            this.setupHostBridgeSubscription(webview);
+
+            // 侧边栏重新可见时推送最新渲染引擎状态（游戏内切换后回来即可同步）
+            webviewView.onDidChangeVisibility(() => {
+                if (webviewView.visible) {
+                    void webview.postMessage({ type: 'renderEngineState', state: this._renderEngine.getStatus() });
+                }
+            });
 
             // Clean up watcher when view is disposed
             webviewView.onDidDispose(() => {
@@ -79,6 +106,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
         webview.html = this.getHtmlForWebview(webview);
         this.setupMessageHandler(webview);
         this.setupConfigSubscription(webview);
+        this.setupRenderEngineSubscription(webview);
+        this.setupHostBridgeSubscription(webview);
         panel.onDidDispose(() => this.dispose());
     }
 
@@ -87,6 +116,10 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
         this._messageSubscription = undefined;
         this._configSubscription?.dispose();
         this._configSubscription = undefined;
+        this._renderEngineSubscription?.dispose();
+        this._renderEngineSubscription = undefined;
+        this._hostBridgeSubscription?.dispose();
+        this._hostBridgeSubscription = undefined;
         if (this._reviewProcess && !this._reviewProcess.killed) {
             this._reviewProcess.kill();
         }
@@ -111,6 +144,191 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
     }
 
     /**
+     * 重启游戏：先结束正在运行的 Minecraft，再按当前配置重新启动。
+     * 重启期间给面板回一个 running 状态，让「重启」按钮转圈并禁用，避免连点重复拉起。
+     */
+    private async handleRestartGame(webview: vscode.Webview): Promise<void> {
+        void webview.postMessage({ type: 'gameRestarting', running: true });
+        try {
+            await vscode.commands.executeCommand('mcdev-tools.restartGame');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`重启游戏失败: ${message}`);
+        } finally {
+            void webview.postMessage({ type: 'gameRestarting', running: false });
+        }
+    }
+
+    /** 当前可用的游戏会话：优先已进入存档的那个。 */
+    private resolveDebugSession(): HostBridgeSessionSummary | undefined {
+        const sessions = this._hostBridge.getSnapshot().sessions;
+        return sessions.find(item => item.connected && item.state === 'game_ready')
+            ?? sessions.find(item => item.connected)
+            ?? sessions[0];
+    }
+
+    private async handleDebugSwitchesState(webview: vscode.Webview, msg: any): Promise<void> {
+        const requestId = typeof msg.requestId === 'string' && msg.requestId.length <= 128
+            ? msg.requestId
+            : '';
+        if (!requestId) {
+            return;
+        }
+        const session = this.resolveDebugSession();
+        if (!session || !session.connected || session.state !== 'game_ready') {
+            await webview.postMessage({
+                type: 'debugSwitchesStateResult',
+                requestId,
+                states: {},
+                settingsOpen: false,
+                error: 'session-not-ready',
+            });
+            return;
+        }
+        try {
+            const raw = await this._hostBridge.executeCode(session.id, buildDebugSwitchesStateCode(), true);
+            await webview.postMessage({
+                type: 'debugSwitchesStateResult',
+                requestId,
+                ...parseDebugSwitchesState(raw),
+            });
+        } catch (error) {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'execute-failed',
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    private async handleDebugSwitchSet(webview: vscode.Webview, msg: any): Promise<void> {
+        const requestId = typeof msg.requestId === 'string' && msg.requestId.length <= 128
+            ? msg.requestId
+            : '';
+        if (!requestId) {
+            return;
+        }
+        const id = typeof msg.id === 'string' && msg.id.length <= 64 ? msg.id : '';
+        const definition = id ? findDebugSwitch(id) : undefined;
+        if (!definition) {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'unknown-switch',
+                message: 'Unknown debug switch',
+            });
+            return;
+        }
+        const session = this.resolveDebugSession();
+        if (!session || !session.connected || session.state !== 'game_ready') {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'session-not-ready',
+                message: 'The game connection is not ready',
+            });
+            return;
+        }
+        const enabled = msg.enabled === true;
+        try {
+            const opened = await ensureDebugSettingsOpen(this._hostBridge, session.id);
+            if (!opened.ok) {
+                await webview.postMessage({
+                    type: 'debugSwitchesError',
+                    requestId,
+                    code: 'settings-open-failed',
+                    message: 'Could not open the game settings screen',
+                    detail: opened.error,
+                });
+                return;
+            }
+            const raw = await this._hostBridge.executeCode(
+                session.id,
+                buildDebugSwitchSetCode(definition.id, enabled),
+                true
+            );
+            await webview.postMessage({
+                type: 'debugSwitchSetResult',
+                requestId,
+                id: definition.id,
+                enabled,
+                ...parseDebugSwitchSetResult(raw),
+            });
+        } catch (error) {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'execute-failed',
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    /** 一次性关闭全部调试开关：打开一次设置页，再按已有的单开关脚本逐个关。 */
+    private async handleDebugSwitchesAllOff(webview: vscode.Webview, msg: any): Promise<void> {
+        const requestId = typeof msg.requestId === 'string' && msg.requestId.length <= 128
+            ? msg.requestId
+            : '';
+        if (!requestId) {
+            return;
+        }
+        const session = this.resolveDebugSession();
+        if (!session || !session.connected || session.state !== 'game_ready') {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'session-not-ready',
+                message: 'The game connection is not ready',
+            });
+            return;
+        }
+        try {
+            const opened = await ensureDebugSettingsOpen(this._hostBridge, session.id);
+            if (!opened.ok) {
+                await webview.postMessage({
+                    type: 'debugSwitchesError',
+                    requestId,
+                    code: 'settings-open-failed',
+                    message: 'Could not open the game settings screen',
+                    detail: opened.error,
+                });
+                return;
+            }
+            const results: Record<string, DebugSwitchSetResult> = {};
+            for (const definition of DEBUG_SWITCHES) {
+                try {
+                    const raw = await this._hostBridge.executeCode(
+                        session.id,
+                        buildDebugSwitchSetCode(definition.id, false),
+                        true
+                    );
+                    results[definition.id] = parseDebugSwitchSetResult(raw);
+                } catch (error) {
+                    results[definition.id] = {
+                        ok: false,
+                        error: 'execute-failed',
+                        detail: error instanceof Error ? error.message : String(error),
+                    };
+                }
+            }
+            await webview.postMessage({
+                type: 'debugSwitchesAllOffResult',
+                requestId,
+                ok: Object.values(results).every(item => item.ok === true),
+                results,
+            });
+        } catch (error) {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                code: 'execute-failed',
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    /**
      * 设置消息处理器
      */
     private setupMessageHandler(webview: vscode.Webview): void {
@@ -128,6 +346,12 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleUpdateSkinPreview(webview, msg.path);
             } else if (msg?.type === 'runGame') {
                 await vscode.commands.executeCommand('mcdev-tools.runGame');
+            } else if (msg?.type === 'restartGame') {
+                await this.handleRestartGame(webview);
+            } else if (msg?.type === 'toggleRenderEngine') {
+                await this._renderEngine.toggle();
+            } else if (msg?.type === 'refreshRenderEngine') {
+                this._renderEngine.refresh();
             } else if (msg?.type === 'startDebug') {
                 await vscode.commands.executeCommand('mcdev-tools.startDebug');
             } else if (msg?.type === 'browseGameExecutable') {
@@ -140,6 +364,12 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleCodeReview(webview, msg);
             } else if (msg?.type === 'openReviewReport') {
                 await this.handleOpenReviewReport(msg.path);
+            } else if (msg?.type === 'debugSwitchesState') {
+                await this.handleDebugSwitchesState(webview, msg);
+            } else if (msg?.type === 'debugSwitchSet') {
+                await this.handleDebugSwitchSet(webview, msg);
+            } else if (msg?.type === 'debugSwitchesAllOff') {
+                await this.handleDebugSwitchesAllOff(webview, msg);
             } else if (msg?.type === 'openGameDebugger') {
                 await vscode.commands.executeCommand('mcdev-tools.openGameDebugger');
             } else if (msg?.type === 'openPerfMonitor') {
@@ -162,6 +392,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
                 await this.handleInstallMagpieMcp(webview, msg.url);
             } else if (msg?.type === 'detectMagpie') {
                 await this.handleDetectMagpie(webview);
+            } else if (msg?.type === 'layoutProbe') {
+                traceSurface('profiler.layout', msg.data);
             } else if (msg?.type === 'log') {
                 const prefix = `[Webview ${msg.level || 'log'}]`;
                 if (msg.level === 'error') {
@@ -179,6 +411,7 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
      * 处理 ready 消息
      */
     private async handleReady(webview: vscode.Webview): Promise<void> {
+        traceSurface('webview.ready', { version: resolveExtensionVersion(this._extensionUri.fsPath) });
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         const language = vscode.env.language; // 获取 VS Code 语言设置
         
@@ -230,7 +463,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
     }
 
     /**
-     * 立即按选中存档重写 included_mod_dirs（用户手动点「同步此存档的 MOD 列表」）
+     * 立即按选中存档精确重写 included_mod_dirs（用户手动点「按此存档覆盖 MOD 列表」）。
+     * 启动 / 重启不调用这里：那些路径以当前列表为准，不能再从存档回写。
      */
     private async handleSyncWorldMods(webview: vscode.Webview, folder?: string): Promise<void> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -240,21 +474,20 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
         }
         try {
             const result = applyWorldAutoMods(workspaceFolder.uri.fsPath, {
-                force: true,
                 worldFolder: typeof folder === 'string' ? folder : undefined,
             });
             if (result.status === 'applied' || result.status === 'unchanged') {
                 const missing = result.unknownPacks.length > 0 ? `，${result.unknownPacks.length} 个包在本地找不到` : '';
                 vscode.window.showInformationMessage(
-                    `已按存档装配 ${result.dirs.length} 个 MOD 目录${missing}`,
+                    `已按存档覆盖 MOD 列表：${result.dirs.length} 个 MOD 目录${missing}`,
                 );
                 await webview.postMessage({ type: 'saved' });
             } else {
-                vscode.window.showWarningMessage(`未能按存档装配 MOD：${result.reason ?? result.status}`);
+                vscode.window.showWarningMessage(`未能按存档覆盖 MOD 列表：${result.reason ?? result.status}`);
             }
             this.handleGetWorlds(webview);
         } catch (e) {
-            vscode.window.showErrorMessage(`同步 MOD 列表失败: ${e}`);
+            vscode.window.showErrorMessage(`按存档覆盖 MOD 列表失败: ${e}`);
         }
     }
 
@@ -742,6 +975,31 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
         await vscode.window.showTextDocument(document, { preview: true });
     }
 
+    /** 渲染引擎状态变化（切换、游戏关闭后自动回退）实时同步给界面 */
+    private setupRenderEngineSubscription(webview: vscode.Webview): void {
+        this._renderEngineSubscription?.dispose();
+        this._renderEngineSubscription = this._renderEngine.onDidChange(state => {
+            void webview.postMessage({ type: 'renderEngineState', state });
+        });
+    }
+
+    /** 游戏会话可用性变化时通知侧边栏，让调试开关自动刷新，不用手动点刷新。 */
+    private setupHostBridgeSubscription(webview: vscode.Webview): void {
+        this._hostBridgeSubscription?.dispose();
+        let lastReady: boolean | undefined;
+        const post = () => {
+            const session = this.resolveDebugSession();
+            const ready = Boolean(session && session.connected && session.state === 'game_ready');
+            if (ready === lastReady) {
+                return;
+            }
+            lastReady = ready;
+            void webview.postMessage({ type: 'debugSwitchesAvailability', ready });
+        };
+        this._hostBridgeSubscription = this._hostBridge.onDidChange(post);
+        post();
+    }
+
     private setupConfigSubscription(webview: vscode.Webview): void {
         this._configSubscription?.dispose();
         this._configSubscription = undefined;
@@ -786,7 +1044,8 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
             needsInitialSave: options.needsInitialSave,
             skinPreviewUri,
             gameExecutableDiscoverySupported: isGameExecutableDiscoverySupported,
-            buildLabel: resolveExtensionLabel(this._extensionUri.fsPath)
+            buildLabel: resolveExtensionLabel(this._extensionUri.fsPath),
+            renderEngine: this._renderEngine.getStatus()
         });
     }
 
@@ -800,9 +1059,14 @@ export class McDevToolsSidebarProvider implements vscode.WebviewViewProvider, vs
 
         // Get URIs for built webview assets
         const webviewPath = vscode.Uri.joinPath(this._extensionUri, 'out', 'webview');
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'sidebar.css'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, 'codicons', 'codicon.css'));
+        // 带版本号查询串：窗口重载后不会命中上一版前端的资源缓存
+        const cacheKey = `v=${resolveExtensionVersion(this._extensionUri.fsPath)}`;
+        const versioned = (relative: string[]) => vscode.Uri.parse(
+            `${webview.asWebviewUri(vscode.Uri.joinPath(webviewPath, ...relative)).toString()}?${cacheKey}`
+        );
+        const scriptUri = versioned(['sidebar.js']);
+        const styleUri = versioned(['sidebar.css']);
+        const codiconsUri = versioned(['codicons', 'codicon.css']);
 
         return `<!doctype html>
 <html lang="${lang}">

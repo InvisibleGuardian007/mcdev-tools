@@ -7,6 +7,7 @@ import {
   PythonMemoryState,
 } from '../../types';
 import { vscode } from '../../vscode';
+import { createRequestId } from '../../utils/requestId';
 import type { CaptureSync } from '../../WorkbenchApp';
 
 interface PythonMemoryProfilerToolProps {
@@ -14,12 +15,14 @@ interface PythonMemoryProfilerToolProps {
   t: I18nText;
   /** 集成面板的「开始/停止采集」信号 */
   sync?: CaptureSync;
+  /** 采集由顶部操作条驱动：工具条里只留参数，不再放开始/停止按钮 */
+  topBarCapture?: boolean;
 }
 
 const DEFAULT_DEPTH = 8;
 const MAX_DEPTH = 16;
 
-export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfilerToolProps) {
+export function PythonMemoryProfilerTool({ session, t, sync, topBarCapture }: PythonMemoryProfilerToolProps) {
   const [tracebackDepth, setTracebackDepth] = useState(DEFAULT_DEPTH);
   const [collectGarbage, setCollectGarbage] = useState(true);
   const [state, setState] = useState<PythonMemoryState>();
@@ -108,7 +111,11 @@ export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfi
   }, [state?.startedAt, state?.status]);
 
   const start = () => {
+    // 顶部按钮没有 disabled 态，这里兜住「已经在采」时的重复点击
     if (!session || !canProfile || pending) {
+      return;
+    }
+    if (state?.status === 'running' || state?.status === 'collecting') {
       return;
     }
     setPending(true);
@@ -152,18 +159,23 @@ export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfi
     });
   };
 
-  // 集成面板的「开始采集 / 停止采集」按钮会同时广播给性能与内存两个工具
-  const syncNonceRef = useRef(0);
+  // 集成面板的「开始采集 / 停止采集」会广播给性能与内存两个工具。
+  // 开始时按顶部下拉选的范围过滤（选「仅性能」就不起内存采样）；
+  // 停止时一律先试一遍——stop() 自己会判断有没有在采，不会误伤。
+  // 初值取挂载时的 nonce：页签切走再切回来会重新挂载，不能把上一条指令当成新指令再执行一遍
+  const syncNonceRef = useRef(sync?.nonce ?? 0);
   useEffect(() => {
     if (!sync || sync.nonce === syncNonceRef.current) {
       return;
     }
     syncNonceRef.current = sync.nonce;
     if (sync.kind === 'start') {
-      start();
-    } else {
-      stop();
+      if ((sync.scope ?? 'both') !== 'cpu') {
+        start();
+      }
+      return;
     }
+    stop();
   }, [sync?.nonce]);
 
   const reportAction = (
@@ -217,24 +229,32 @@ export function PythonMemoryProfilerTool({ session, t, sync }: PythonMemoryProfi
           />
           <span>{t.pythonMemoryCollectGarbage}</span>
         </label>
-        <div className="python-memory-action">
-          {state?.status === 'running' ? (
-            <button type="button" className="python-memory-stop" disabled={pending} onClick={stop}>
-              <span className="codicon codicon-debug-stop" />
-              <span>{t.pythonMemoryStop}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="python-memory-start"
-              disabled={!canProfile || pending || state?.status === 'collecting'}
-              onClick={start}
-            >
-              <span className="codicon codicon-record" />
-              <span>{t.pythonMemoryStart}</span>
-            </button>
-          )}
-        </div>
+        {/* 集成面板顶部已经有「开始采集（性能+内存）/ 停止采集」，这里再放一个就是重复的两颗按钮 */}
+        {topBarCapture ? (
+          <span className="capture-synced-hint">
+            <span className="codicon codicon-info" />
+            <span>{t.captureFromTopBar}</span>
+          </span>
+        ) : (
+          <div className="python-memory-action">
+            {state?.status === 'running' ? (
+              <button type="button" className="python-memory-stop" disabled={pending} onClick={stop}>
+                <span className="codicon codicon-debug-stop" />
+                <span>{t.pythonMemoryStop}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="python-memory-start"
+                disabled={!canProfile || pending || state?.status === 'collecting'}
+                onClick={start}
+              >
+                <span className="codicon codicon-record" />
+                <span>{t.pythonMemoryStart}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={`python-memory-status ${state?.status ?? 'idle'}`}>
@@ -543,6 +563,3 @@ function shortenPath(full: string): string {
   return slash >= 0 ? full.slice(slash + 1) : full;
 }
 
-function createRequestId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-}

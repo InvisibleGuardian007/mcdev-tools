@@ -12,7 +12,18 @@ import { DebugKeybindings } from './components/DebugKeybindings';
 import { LauncherSettings } from './components/LauncherSettings';
 import { McpServerConfig } from './components/McpServerConfig';
 import { AssistantMcpLink } from './components/AssistantMcpLink';
+import { DebugSwitchBar } from './components/DebugSwitchBar';
 import './App.css';
+
+interface RenderEngineStatus {
+  mode: 'opengl' | 'renderdragon';
+  graphicsMode: number;
+  optionsPath: string;
+  exists: boolean;
+  autoRevert: boolean;
+  watching: boolean;
+  switching: boolean;
+}
 
 function App() {
   const [lang, setLang] = useState<string>('en');
@@ -28,8 +39,26 @@ function App() {
   const [gameExecutableDiscoveryLoaded, setGameExecutableDiscoveryLoaded] = useState(false);
   const [gameExecutablePaths, setGameExecutablePaths] = useState<string[]>([]);
   const [buildLabel, setBuildLabel] = useState<string>('');
+  const [renderEngine, setRenderEngine] = useState<RenderEngineStatus | null>(null);
   const [worlds, setWorlds] = useState<WorldInfo[]>([]);
+  /** 重启流程进行中：按钮转圈并禁用，避免连点重复拉起 */
+  const [restarting, setRestarting] = useState(false);
   
+  // 侧边栏重新可见时刷新渲染引擎状态：游戏内切换后回到 VS Code 能立刻看到最新值
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        vscode.postMessage({ type: 'refreshRenderEngine' });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, []);
+
   const initializedComponentsRef = useRef<Set<string>>(new Set());
   const initTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -45,6 +74,9 @@ function App() {
           }
           if (typeof msg.buildLabel === 'string') {
             setBuildLabel(msg.buildLabel);
+          }
+          if (msg.renderEngine) {
+            setRenderEngine(msg.renderEngine as RenderEngineStatus);
           }
           const parsedData = JSON.parse(msg.content || '{}');
           if (typeof msg.gameExecutableDiscoverySupported === 'boolean') {
@@ -66,6 +98,12 @@ function App() {
           break;
         case 'saved':
           setHasChanges(false);
+          break;
+        case 'gameRestarting':
+          setRestarting(msg.running === true);
+          break;
+        case 'renderEngineState':
+          setRenderEngine(msg.state ?? null);
           break;
         case 'folderSelected':
           handleFolderSelected(msg.index, msg.path);
@@ -332,6 +370,19 @@ function App() {
     <div className="container">
       {/* Toolbar */}
       <div className="toolbar">
+        <button
+          type="button"
+          className="btn-secondary btn-restart"
+          onClick={() => {
+            setRestarting(true);
+            vscode.postMessage({ type: 'restartGame' });
+          }}
+          disabled={restarting}
+          title={t.restartGameTooltip}
+        >
+          <span className={`codicon ${restarting ? 'codicon-loading btn-restart-spin' : 'codicon-debug-restart'}`}></span>
+          {restarting ? t.restartingGame : t.restartGame}
+        </button>
         <button 
           type="button"
           className="btn-primary btn-run" 
@@ -363,6 +414,41 @@ function App() {
           </span>
         )}
       </div>
+
+      {/* 渲染引擎状态条本身就是按钮：游戏运行时把「切换渲染器」快捷键发给游戏窗口 */}
+      {renderEngine && (
+        <button
+          type="button"
+          className={`render-engine-bar${renderEngine.mode === 'renderdragon' ? ' is-dragon' : ''}`}
+          onClick={() => vscode.postMessage({ type: 'toggleRenderEngine' })}
+          disabled={renderEngine.switching}
+          title={renderEngine.exists ? t.renderEngineSwitchHint : t.renderEngineUnavailable}
+        >
+          <span className={`codicon ${renderEngine.mode === 'renderdragon' ? 'codicon-paintcan' : 'codicon-symbol-color'} render-engine-icon`} />
+          <span className="render-engine-copy">
+            <span className="render-engine-title">
+              <span>{t.renderEngine}</span>
+              <span className={`render-engine-value${renderEngine.mode === 'renderdragon' ? ' is-dragon' : ''}`}>
+                {renderEngine.mode === 'renderdragon' ? t.renderEngineDragon : t.renderEngineOpenGL}
+              </span>
+            </span>
+            <span className="render-engine-desc">
+              {!renderEngine.exists
+                ? t.renderEngineUnavailable
+                : renderEngine.mode === 'renderdragon'
+                  ? t.renderEngineDescDragon
+                  : t.renderEngineDescOpenGL}
+            </span>
+          </span>
+          <span className="render-engine-action">
+            <span className="codicon codicon-debug-restart" />
+            <span>{renderEngine.switching ? t.renderEngineSwitching : renderEngine.exists ? t.renderEngineSwitch : t.renderEngineUnavailable}</span>
+          </span>
+        </button>
+      )}
+
+      {/* 调试开关快捷区：紧挨着渲染引擎状态条，游戏运行时可直接开关 */}
+      <DebugSwitchBar t={t} />
 
       {/* Mod Directories */}
       <ModDirectories

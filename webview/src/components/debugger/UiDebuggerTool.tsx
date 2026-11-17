@@ -2,6 +2,7 @@ import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from '
 import { I18nText } from '../../i18n';
 import { HostBridgeSessionSummary } from '../../types';
 import { vscode } from '../../vscode';
+import { createRequestId } from '../../utils/requestId';
 import { PropertyRow } from './UiDebuggerPropertyEditor';
 
 interface UiDebuggerToolProps {
@@ -1890,8 +1891,3 @@ function getPropertyLabel(key: string): string {
   return PROPERTY_LABELS[key]?.[language] ?? key;
 }
 
-function createRequestId(): string {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}:${Math.random().toString(16).slice(2)}`;
-}

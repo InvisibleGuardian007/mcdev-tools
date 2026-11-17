@@ -85,6 +85,7 @@ button:focus-visible {
   margin: 0 calc(-1 * var(--container-padding));
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 6px;
   border-bottom: 1px solid var(--panel-border);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025);
@@ -148,6 +149,128 @@ button:focus-visible {
 
 .btn-run {
   flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.build-badge {
+  flex: 0 0 auto;
+}
+
+.btn-restart {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+}
+
+.btn-restart:disabled {
+  opacity: 0.65;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 渲染引擎状态条：整行就是按钮，放在工具栏下方，不挤占启动按钮 */
+.render-engine-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 calc(-1 * var(--container-padding));
+  padding: 9px var(--container-padding);
+  border: 0;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: color-mix(in srgb, var(--vscode-sideBar-background) 94%, var(--vscode-foreground) 2%);
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.render-engine-bar:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.render-engine-bar:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.render-engine-bar.is-dragon {
+  box-shadow: inset 2px 0 0 var(--vscode-charts-orange, #d18616);
+}
+
+.render-engine-bar:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.render-engine-icon {
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+
+.render-engine-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.render-engine-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.render-engine-value {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 500;
+}
+
+.render-engine-value.is-dragon {
+  color: var(--vscode-charts-orange, #d18616);
+}
+
+.render-engine-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vscode-descriptionForeground);
+}
+
+.render-engine-action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-button-border, var(--panel-border));
+  border-radius: 999px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.render-engine-bar:hover .render-engine-action {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.btn-restart-spin {
+  animation: mcdev-restart-spin 1s linear infinite;
+}
+
+@keyframes mcdev-restart-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .btn-debug {
@@ -3274,16 +3397,11 @@ button.mod-review-status:disabled {
   color: var(--vscode-descriptionForeground);
 }
 
-/* ---------- 按存档装配 MOD ---------- */
+/* ---------- 按存档覆盖 MOD 列表 ---------- */
 .world-auto-mods-row {
   margin-top: 8px;
   flex-wrap: wrap;
   row-gap: 4px;
-}
-
-.world-auto-mods-row label {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .world-sync-mods {
@@ -3291,13 +3409,16 @@ button.mod-review-status:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 10px;
   border: 1px solid var(--panel-border);
   border-radius: var(--panel-radius);
   background-color: var(--panel-surface);
   color: var(--vscode-icon-foreground);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .world-sync-mods:hover:not(:disabled) {
@@ -3307,6 +3428,7 @@ button.mod-review-status:disabled {
 
 .world-sync-mods:disabled {
   opacity: 0.5;
+  cursor: default;
 }
 
 /* ---------- 重载存档 ---------- */
@@ -3346,3 +3468,163 @@ button.mod-review-status:disabled {
   color: var(--vscode-descriptionForeground);
 }
 
+
+/* ---- 侧边栏调试开关快捷区 ---- */
+.debug-switch-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: color-mix(in srgb, var(--vscode-sideBar-background) 94%, var(--vscode-foreground) 2%);
+}
+
+.debug-switch-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.debug-switch-bar-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vscode-foreground);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.debug-switch-bar-title .codicon {
+  flex: 0 0 auto;
+  color: var(--vscode-icon-foreground);
+  font-size: 13px;
+}
+
+.debug-switch-bar-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.debug-switch-bar-offline {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+
+.debug-switch-refresh {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  cursor: pointer;
+}
+
+.debug-switch-refresh:hover:not(:disabled) {
+  color: var(--vscode-foreground);
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
+.debug-switch-refresh:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.debug-switch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.debug-switch-chip {
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-input-background);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.debug-switch-chip:hover:not(:disabled) {
+  color: var(--vscode-foreground);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.debug-switch-chip.on {
+  border-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.debug-switch-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.debug-switch-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.debug-switch-chip.on .debug-switch-dot {
+  opacity: 1;
+}
+
+.debug-switch-bar-error {
+  color: var(--vscode-errorForeground);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.debug-switch-bar-notice {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.debug-switch-all-off {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  font-family: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.debug-switch-all-off:hover:not(:disabled) {
+  color: var(--vscode-foreground);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.debug-switch-all-off:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

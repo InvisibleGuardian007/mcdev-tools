@@ -126,7 +126,8 @@ function getSessionStateLabel(session: HostBridgeSessionSummary, t: I18nText): s
     case 'starting':
       return t.hostBridgeStarting;
     case 'game_unavailable':
-      return t.hostBridgeUnavailable;
+      // 断开后 state 停在最后一次上报，别把死会话说成「存档不可用」。
+      return session.connected ? t.hostBridgeUnavailable : t.hostBridgeDisconnected;
     case 'exiting':
       return t.hostBridgeExiting;
     case 'exited':

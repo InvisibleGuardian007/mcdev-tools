@@ -7,6 +7,7 @@ import {
   SavedDebugFunction,
 } from '../../types';
 import { vscode } from '../../vscode';
+import { createRequestId } from '../../utils/requestId';
 
 interface DebugFunctionsToolProps {
   session?: HostBridgeSessionSummary;
@@ -853,12 +854,6 @@ function argumentPlaceholder(kind: string, t: I18nText): string {
     return t.debugFunctionsKwargsPlaceholder;
   }
   return t.debugFunctionsJsonPlaceholder;
-}
-
-function createRequestId(): string {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}:${Math.random().toString(16).slice(2)}`;
 }
 
 function formatResult(value: unknown): string {

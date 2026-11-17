@@ -2,9 +2,13 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ensureMcdevDirectory } from '../utils/mcdevDirectory';
 import {
+    PythonProfilerCall,
     PythonProfilerClock,
+    PythonProfilerFunction,
     PythonProfilerResult,
-    PythonProfilerTarget
+    PythonProfilerSide,
+    PythonProfilerTarget,
+    profilerFunctionMod
 } from './pythonProfiler';
 
 /** 采集历史里保存的最小函数记录：只留对比需要的字段 */
@@ -12,6 +16,19 @@ export interface PythonProfilerHistoryFunction {
     name: string;
     module: string;
     line: number;
+    calls: number;
+    selfTime: number;
+    totalTime: number;
+    /** 是否属于项目的 MOD 脚本；旧文件没有这个字段，按 MOD 函数处理 */
+    isProject?: boolean;
+    /** 该函数采自哪一端；「全部」采集时同一份历史里会有两端，旧文件没有这个字段 */
+    target?: PythonProfilerSide;
+}
+
+/** 采集历史里的一条调用边：两端都是 functions 里的下标，避免重复存名字把文件撑大 */
+export interface PythonProfilerHistoryCall {
+    caller: number;
+    callee: number;
     calls: number;
     selfTime: number;
     totalTime: number;
@@ -28,6 +45,8 @@ export interface PythonProfilerHistoryEntry {
     functionCount: number;
     worldName?: string;
     functions: PythonProfilerHistoryFunction[];
+    /** 调用关系（下标指向上面的 functions）；旧文件没有这个字段 */
+    calls?: PythonProfilerHistoryCall[];
 }
 
 /** 列表用的精简视图：不带 functions 明细，避免每次刷新传几百 KB */
@@ -66,9 +85,18 @@ export interface PythonProfilerHistoryContext {
 }
 
 /** 保留的采集份数（按时间，超出后删最旧） */
-const MAX_HISTORY_ENTRIES = 40;
-/** 每份采集最多保存的函数条数，够对比即可，避免历史文件膨胀 */
-const MAX_HISTORY_FUNCTIONS = 120;
+const MAX_HISTORY_ENTRIES = 20;
+/**
+ * 每份采集保存的函数条数上限：要够「只看某个 mod」回看时拿到这个 mod 的全部函数，
+ * 所以上限按项目函数总量给足；再靠 MAX_HISTORY_ENTRIES 控制目录体积。
+ */
+const MAX_HISTORY_FUNCTIONS = 20000;
+/** 每个 (端, mod) 组合的保底条数：和历史上限一样，按占比分配，避免慢的 mod 把别的挤掉 */
+const MIN_HISTORY_FUNCTIONS_PER_GROUP = 16;
+/** 为了让调用关系回看时对端不缺，额外带上与已保留函数直接相连的引擎函数 */
+const MAX_HISTORY_NEIGHBOURS = 20000;
+/** 每份采集最多保存的调用边数 */
+const MAX_HISTORY_CALLS = 200000;
 
 export async function pythonProfilerHistoryDirectory(projectRoot: string): Promise<string> {
     const mcdevDirectory = await ensureMcdevDirectory(projectRoot);
@@ -81,20 +109,9 @@ export function buildPythonProfilerHistoryEntry(
     context: PythonProfilerHistoryContext,
     result: PythonProfilerResult
 ): PythonProfilerHistoryEntry {
-    const projectFunctions = result.functions.filter(item => item.isProject !== false);
-    const source = projectFunctions.length > 0 ? projectFunctions : result.functions;
-    const functions = source
-        .slice()
-        .sort((left, right) => right.totalTime - left.totalTime)
-        .slice(0, MAX_HISTORY_FUNCTIONS)
-        .map(item => ({
-            name: item.name,
-            module: item.module,
-            line: item.line,
-            calls: item.calls,
-            selfTime: round(item.selfTime),
-            totalTime: round(item.totalTime)
-        }));
+    const functions = selectHistoryFunctions(result);
+    const indexById = new Map<number, number>();
+    functions.forEach((item, index) => indexById.set(item.id, index));
     return {
         id: historyId(context.capturedAt, context.target, context.clock),
         capturedAt: context.capturedAt.toISOString(),
@@ -104,8 +121,114 @@ export function buildPythonProfilerHistoryEntry(
         totalCalls: result.functions.reduce((sum, item) => sum + item.calls, 0),
         functionCount: result.totalFunctions,
         worldName: context.worldName,
-        functions
+        functions: functions.map(item => ({
+            name: item.name,
+            module: item.module,
+            line: item.line,
+            calls: item.calls,
+            selfTime: round(item.selfTime),
+            totalTime: round(item.totalTime),
+            isProject: item.isProject !== false,
+            target: item.target
+        })),
+        calls: selectHistoryCalls(result.calls, indexById)
     };
+}
+
+/**
+ * 历史里只存对比要用的 MOD 函数（按 (端, mod) 占比分配预算），再补上与它们直接相连的引擎函数；
+ * 否则回看历史时「调用来源 / 下级调用」又是空的。
+ */
+function selectHistoryFunctions(result: PythonProfilerResult): PythonProfilerFunction[] {
+    const project = result.functions.filter(item => item.isProject !== false);
+    if (project.length === 0) {
+        return selectByGroupShare(result.functions, MAX_HISTORY_FUNCTIONS);
+    }
+    const retained = selectByGroupShare(project, MAX_HISTORY_FUNCTIONS);
+    if (result.calls.length === 0) {
+        return retained;
+    }
+    const retainedIds = new Set(retained.map(item => item.id));
+    const byId = new Map(result.functions.map(item => [item.id, item]));
+    const neighbours = new Map<number, PythonProfilerFunction>();
+    for (const call of result.calls) {
+        const caller = byId.get(call.callerId);
+        const callee = byId.get(call.calleeId);
+        if (!caller || !callee) {
+            continue;
+        }
+        if (retainedIds.has(caller.id) && !retainedIds.has(callee.id) && callee.isProject === false) {
+            neighbours.set(callee.id, callee);
+        } else if (retainedIds.has(callee.id) && !retainedIds.has(caller.id) && caller.isProject === false) {
+            neighbours.set(caller.id, caller);
+        }
+    }
+    if (neighbours.size === 0) {
+        return retained;
+    }
+    const extra = Array.from(neighbours.values())
+        .sort((left, right) => right.totalTime - left.totalTime)
+        .slice(0, MAX_HISTORY_NEIGHBOURS);
+    return retained.concat(extra);
+}
+
+/**
+ * 按 (端, mod) 分组的条数占比分配预算：和采集侧同一规则。
+ * 只按耗时截断时，服务端热函数会把客户端整段挤掉，回看单个 mod 也拿不到这个 mod 的全部函数。
+ */
+function selectByGroupShare(
+    items: PythonProfilerFunction[],
+    budget: number
+): PythonProfilerFunction[] {
+    if (items.length <= budget) {
+        return items.slice().sort((left, right) => right.totalTime - left.totalTime);
+    }
+    const groups = new Map<string, PythonProfilerFunction[]>();
+    for (const item of items) {
+        const key = `${item.target}|${profilerFunctionMod(item)}`;
+        const bucket = groups.get(key);
+        if (bucket) {
+            bucket.push(item);
+        } else {
+            groups.set(key, [item]);
+        }
+    }
+    const total = items.length || 1;
+    const kept: PythonProfilerFunction[] = [];
+    for (const bucket of groups.values()) {
+        bucket.sort((left, right) => right.totalTime - left.totalTime);
+        const quota = Math.max(
+            MIN_HISTORY_FUNCTIONS_PER_GROUP,
+            Math.floor(budget * bucket.length / total)
+        );
+        kept.push(...bucket.slice(0, quota));
+    }
+    kept.sort((left, right) => right.totalTime - left.totalTime);
+    return kept.slice(0, budget);
+}
+
+/** 只保留两端都在历史函数表里的调用边，并按耗时取前 N 条 */
+function selectHistoryCalls(
+    calls: PythonProfilerCall[],
+    indexById: Map<number, number>
+): PythonProfilerHistoryCall[] {
+    const kept: PythonProfilerHistoryCall[] = [];
+    for (const call of calls) {
+        const caller = indexById.get(call.callerId);
+        const callee = indexById.get(call.calleeId);
+        if (caller === undefined || callee === undefined) {
+            continue;
+        }
+        kept.push({
+            caller,
+            callee,
+            calls: call.calls,
+            selfTime: round(call.selfTime),
+            totalTime: round(call.totalTime)
+        });
+    }
+    kept.sort((left, right) => right.totalTime - left.totalTime);
+    return kept.slice(0, MAX_HISTORY_CALLS);
 }
 
 /** 落盘一份采集摘要，返回写入的 id；同名（同一秒内两次采集）自动加后缀 */

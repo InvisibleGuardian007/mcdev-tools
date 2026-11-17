@@ -6,10 +6,21 @@ import {
     validateSavedFunction
 } from '../debugFunctions';
 import { buildWebviewPage } from './webviewPage';
+import { traceSurface } from './surfaceTrace';
 import { getNonce } from '../utils';
 import { HostBridgeManager } from './manager';
 import { LatestOperationQueue } from './latestOperationQueue';
 import { HostBridgeRpcError } from './server';
+import {
+    buildDebugSwitchSetCode,
+    buildDebugSwitchesStateCode,
+    DEBUG_SWITCHES,
+    findDebugSwitch,
+    parseDebugSwitchSetResult,
+    parseDebugSwitchesState,
+    type DebugSwitchSetResult
+} from './debugSwitches';
+import { ensureDebugSettingsOpen } from './debugSwitchSettings';
 import { DisposableLike } from './types';
 import { PythonProfilerController } from './pythonProfilerController';
 import { PythonMemoryProfilerController } from './pythonMemoryProfilerController';
@@ -110,6 +121,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
 
     /** 打开为编辑器页签（当前编辑器组里单开一个标签）。 */
     public show(): void {
+        traceSurface('panel.show', { surface: this.surfaceKind, hasView: Boolean(this.lastView) });
         if (this.surface?.kind === 'panel') {
             this.surface.reveal();
             return;
@@ -145,15 +157,18 @@ export class GameDebuggerPanel implements vscode.Disposable {
      * 还没解析出视图（lastView 为空）时返回 false，调用方继续重试聚焦。
      */
     public async dockToSidebar(): Promise<boolean> {
+        traceSurface('dockToSidebar', { surface: this.surfaceKind, hasView: Boolean(this.lastView) });
         if (this.surface?.kind === 'view') {
             await vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus');
             return true;
         }
         const view = this.lastView;
         if (!view) {
+            traceSurface('dockToSidebar.noView');
             return false;
         }
         await this.handOffToView(view);
+        traceSurface('dockToSidebar.done');
         await vscode.commands.executeCommand('workbench.view.extension.mcdev-tools-aux.focus');
         return true;
     }
@@ -176,6 +191,7 @@ export class GameDebuggerPanel implements vscode.Disposable {
     public resolveWebviewView(view: vscode.WebviewView): void {
         this.lastView = view;
         const previous = this.surface;
+        traceSurface('view.resolve', { previous: previous?.kind, visible: view.visible });
         if (previous?.kind === 'view') {
             return;
         }
@@ -337,6 +353,24 @@ export class GameDebuggerPanel implements vscode.Disposable {
         if (message?.type === 'hostBridgeRefresh') {
             await this.hostBridgeManager.refreshSessions();
             await this.postState(webview);
+            return;
+        }
+        if (message?.type === 'layoutProbe') {
+            traceSurface('profiler.layout', message.data);
+            return;
+        }
+        if (message?.type === 'webviewError') {
+            // 前端渲染异常：写日志而不是让面板静默变空白，方便事后定位
+            traceSurface('webview.error', {
+                source: message.source,
+                message: message.message,
+                stack: message.stack,
+                componentStack: message.componentStack,
+            });
+            return;
+        }
+        if (typeof message?.type === 'string' && message.type.startsWith('debugSwitch')) {
+            await this.handleDebugSwitchesMessage(webview, message);
             return;
         }
         if (typeof message?.type === 'string' && message.type.startsWith('debugFunction')) {
@@ -778,6 +812,152 @@ export class GameDebuggerPanel implements vscode.Disposable {
         await webview.postMessage({
             type: 'uiDebuggerError', requestId, action, sessionId, connectionGeneration, message
         });
+    }
+
+    private async handleDebugSwitchesMessage(webview: vscode.Webview, message: any): Promise<void> {
+        const requestId = readBoundedString(message.requestId, 128);
+        const sessionId = readBoundedString(message.sessionId, 128);
+        const connectionGeneration = Number.isInteger(message.connectionGeneration)
+            ? Number(message.connectionGeneration)
+            : -1;
+        if (!requestId || !sessionId || connectionGeneration < 0) {
+            return;
+        }
+
+        const session = this.hostBridgeManager.getSnapshot().sessions.find(item => item.id === sessionId);
+        if (
+            !session?.connected
+            || session.state !== 'game_ready'
+            || session.connectionGeneration !== connectionGeneration
+        ) {
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                sessionId,
+                connectionGeneration,
+                action: message.type,
+                code: 'session-not-ready',
+                message: 'The selected game connection is not ready'
+            });
+            return;
+        }
+
+        try {
+            if (message.type === 'debugSwitchesState') {
+                const raw = await this.hostBridgeManager.executeCode(
+                    sessionId, buildDebugSwitchesStateCode(), true
+                );
+                const state = parseDebugSwitchesState(raw);
+                await webview.postMessage({
+                    type: 'debugSwitchesStateResult',
+                    requestId,
+                    sessionId,
+                    connectionGeneration,
+                    ...state
+                });
+                return;
+            }
+            if (message.type === 'debugSwitchesAllOff') {
+                const opened = await ensureDebugSettingsOpen(this.hostBridgeManager, sessionId);
+                if (!opened.ok) {
+                    await webview.postMessage({
+                        type: 'debugSwitchesError',
+                        requestId,
+                        sessionId,
+                        connectionGeneration,
+                        action: message.type,
+                        code: 'settings-open-failed',
+                        message: 'Could not open the game settings screen',
+                        detail: opened.error
+                    });
+                    return;
+                }
+                const results: Record<string, DebugSwitchSetResult> = {};
+                for (const definition of DEBUG_SWITCHES) {
+                    try {
+                        const raw = await this.hostBridgeManager.executeCode(
+                            sessionId,
+                            buildDebugSwitchSetCode(definition.id, false),
+                            true
+                        );
+                        results[definition.id] = parseDebugSwitchSetResult(raw);
+                    } catch (error) {
+                        results[definition.id] = {
+                            ok: false,
+                            error: 'execute-failed',
+                            detail: error instanceof Error ? error.message : String(error)
+                        };
+                    }
+                }
+                await webview.postMessage({
+                    type: 'debugSwitchesAllOffResult',
+                    requestId,
+                    sessionId,
+                    connectionGeneration,
+                    ok: Object.values(results).every(item => item.ok === true),
+                    results
+                });
+                return;
+            }
+            if (message.type === 'debugSwitchSet') {
+                const id = readBoundedString(message.id, 64);
+                const definition = id ? findDebugSwitch(id) : undefined;
+                if (!definition) {
+                    await webview.postMessage({
+                        type: 'debugSwitchesError',
+                        requestId,
+                        sessionId,
+                        connectionGeneration,
+                        action: message.type,
+                        code: 'unknown-switch',
+                        message: 'Unknown debug switch'
+                    });
+                    return;
+                }
+                const enabled = message.enabled === true;
+                const opened = await ensureDebugSettingsOpen(this.hostBridgeManager, sessionId);
+                if (!opened.ok) {
+                    await webview.postMessage({
+                        type: 'debugSwitchesError',
+                        requestId,
+                        sessionId,
+                        connectionGeneration,
+                        action: message.type,
+                        code: 'settings-open-failed',
+                        message: 'Could not open the game settings screen',
+                        detail: opened.error
+                    });
+                    return;
+                }
+                const raw = await this.hostBridgeManager.executeCode(
+                    sessionId,
+                    buildDebugSwitchSetCode(definition.id, enabled),
+                    true
+                );
+                const result = parseDebugSwitchSetResult(raw);
+                await webview.postMessage({
+                    type: 'debugSwitchSetResult',
+                    requestId,
+                    sessionId,
+                    connectionGeneration,
+                    id: definition.id,
+                    enabled,
+                    ...result
+                });
+                return;
+            }
+        } catch (error) {
+            const rpcError = error instanceof HostBridgeRpcError ? error : undefined;
+            await webview.postMessage({
+                type: 'debugSwitchesError',
+                requestId,
+                sessionId,
+                connectionGeneration,
+                action: message.type,
+                message: error instanceof Error ? error.message : String(error),
+                code: rpcError?.symbolicCode
+            });
+        }
     }
 
     private async handleDebugFunctionMessage(webview: vscode.Webview, message: any): Promise<void> {

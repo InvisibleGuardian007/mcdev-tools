@@ -9,8 +9,6 @@ import { SectionHeader } from './SectionHeader';
 interface McdevData {
   world_name?: string;
   world_folder_name?: string;
-  /** 启动时按选中存档自动装配 MOD 目录（默认开启） */
-  world_auto_mods?: boolean;
   world_seed?: number | null;
   game_mode?: number;
   world_type?: number;
@@ -39,7 +37,6 @@ interface Props {
 const DEFAULT_VALUES: McdevData = {
   world_name: 'MC_DEV_WORLD',
   world_folder_name: 'MC_DEV_WORLD',
-  world_auto_mods: true,
   world_seed: null,
   world_type: 1,
   game_mode: 1,
@@ -118,22 +115,16 @@ export const WorldSettings: React.FC<Props> = ({
         </div>
         <div className="world-select-hint">{t.worldSelectHint}</div>
         <div className="checkbox-group world-auto-mods-row">
-          <input
-            type="checkbox"
-            id="world_auto_mods"
-            checked={data.world_auto_mods !== false}
-            onChange={(e) => onDataChange('world_auto_mods', e.target.checked)}
-          />
-          <label htmlFor="world_auto_mods">{t.worldAutoMods}</label>
           <button
             type="button"
-            className="btn-link-compact world-sync-mods"
+            className="world-sync-mods"
             onClick={() => onSyncWorldMods?.(currentFolder)}
             title={t.worldSyncMods}
             aria-label={t.worldSyncMods}
             disabled={!currentFolder}
           >
             <span className="codicon codicon-sync"></span>
+            <span>{t.worldSyncModsLabel}</span>
           </button>
         </div>
         <div className="world-select-hint">{t.worldAutoModsHint}</div>

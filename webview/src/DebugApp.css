@@ -72,7 +72,7 @@ body[data-view="studio"] #root {
 .debug-session-controls {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(240px, 440px) minmax(130px, 1fr) 30px;
+  grid-template-columns: minmax(240px, 440px) minmax(130px, 1fr) auto;
   align-items: end;
   justify-content: end;
   gap: 8px;
@@ -272,8 +272,19 @@ body[data-view="studio"] #root {
   white-space: nowrap;
 }
 
-.debug-session-controls > .host-bridge-icon-button {
+/* 右上角两个图标按钮（页面/侧栏切换、刷新）放进同一个 flex 组，
+   避免窄屏网格把两个按钮塞进同一格造成图标重叠 */
+.debug-session-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 7px;
+}
+
+/* 宽屏只显示图标；窄屏（见下方 620px 媒体查询）补文字标签 */
+.debug-workbench-dock-label {
+  display: none;
 }
 
 .debug-workbench-body {
@@ -869,9 +880,203 @@ body[data-view="studio"] #root {
   font-size: 9px;
 }
 
+/* 「复制给 Agent」正文检查：填满整个面板（不新开编辑器分页，需要更大再加「在编辑器中打开」） */
+.python-profiler-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: color-mix(in srgb, var(--vscode-editor-background) 72%, #000);
+}
+
+.python-profiler-prompt-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 4px;
+  padding: 8px 10px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border, transparent);
+  border-radius: 4px;
+}
+
+.python-profiler-prompt-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.python-profiler-prompt-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.python-profiler-prompt-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.python-profiler-prompt-stats {
+  font-variant-numeric: tabular-nums;
+}
+
+.python-profiler-prompt-chip {
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 45%, transparent);
+  border-radius: 9px;
+}
+
+.python-profiler-prompt-path {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.python-profiler-prompt-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.python-profiler-prompt-wrap input {
+  margin: 0;
+}
+
+.python-profiler-prompt-text {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: var(--vscode-editor-font-size, 12px);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  resize: none;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+}
+
+.python-profiler-prompt-text:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.python-profiler-prompt-text.no-wrap {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.python-profiler-prompt-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.python-profiler-prompt-hint {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.python-profiler-prompt-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.python-profiler-prompt-btn {
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.python-profiler-prompt-btn:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.python-profiler-prompt-btn--primary {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.python-profiler-prompt-btn--primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.python-profiler-prompt-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.python-profiler-copy-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.python-profiler-copy-limit label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.python-profiler-copy-limit input[type='number'] {
+  width: 58px;
+  padding: 1px 4px;
+  font-size: 11px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+}
+
+.python-profiler-copy-limit input[type='number']:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.python-profiler-copy-all input[type='checkbox'] {
+  margin: 0;
+}
+
 .python-profiler-action {
   min-width: max-content;
   margin-left: auto;
+}
+
+/* 集成面板里工具条不再自带开始/停止（顶部已有），只留一句指向顶部的提示 */
+.capture-synced-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, inherit);
 }
 
 .python-profiler-start,
@@ -1038,7 +1243,7 @@ body[data-view="studio"] #root {
   min-height: 0;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(280px, var(--python-profiler-functions-width, 60%)) 5px minmax(280px, 1fr);
+  grid-template-columns: minmax(0, var(--python-profiler-functions-width, 60%)) 5px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
@@ -1151,6 +1356,65 @@ body[data-view="studio"] #root {
   margin-left: 8px;
 }
 
+/* MOD 筛选条：一颗一颗的胶囊，mod 多时折行并可滚动，别把函数表挤没 */
+.python-profiler-mod-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  /* 高度不够时优先压缩下面的函数表，不要把胶囊压成一条线 */
+  flex: 0 0 auto;
+  /* 按面板高度取比例：mod 多时能长出几行，绝不把最后一行切成半截 */
+  max-height: min(46%, 180px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.python-profiler-mod-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 2px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.python-profiler-mod-chip:hover,
+.python-profiler-mod-chip:focus-visible {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  outline: none;
+}
+
+.python-profiler-mod-chip.active {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 18%, transparent);
+}
+
+.python-profiler-mod-chip .codicon {
+  font-size: 11px;
+}
+
+.python-profiler-mod-chip small {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.python-profiler-mod-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .python-profiler-navigation-hint {
   margin-left: auto;
   overflow: hidden;
@@ -1163,7 +1427,8 @@ body[data-view="studio"] #root {
 .python-profiler-table-header,
 .python-profiler-table button {
   display: grid;
-  grid-template-columns: minmax(220px, 1.35fr) minmax(150px, 1fr) 58px 82px 82px;
+  /* 列顺序/列宽由 JS 算好写进 --python-profiler-tracks，拖动换列位置时两端保持一致 */
+  grid-template-columns: var(--python-profiler-tracks, minmax(220px, 1.35fr) minmax(150px, 1fr) 58px 82px 82px);
   align-items: center;
   column-gap: 8px;
 }
@@ -1171,6 +1436,7 @@ body[data-view="studio"] #root {
 .python-profiler-table-header {
   height: 30px;
   flex: 0 0 30px;
+  min-height: 30px;
   padding: 0 12px;
   border-bottom: 1px solid var(--panel-border);
   color: var(--vscode-descriptionForeground);
@@ -1222,8 +1488,18 @@ body[data-view="studio"] #root {
 
 .python-profiler-table {
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   overflow: auto;
+  scrollbar-width: thin;
+}
+
+/* 行数超出渲染上限时的提示：表里只铺前 N 行，全部数据在报告和「复制给 Agent」里 */
+.python-profiler-rows-hint {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border-top: 1px solid var(--panel-border);
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
 }
 
 .python-profiler-table button {
@@ -1465,20 +1741,74 @@ body[data-view="studio"] #root {
   font-size: 19px;
 }
 
-@media (max-width: 820px) {
-  .python-profiler-results {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(280px, 3fr) minmax(220px, 2fr);
-    overflow: auto;
-  }
+/* 容器变窄（≤820px）时两个面板上下堆叠：由 JS 量出来加 .is-stacked，不依赖媒体查询 */
+.python-profiler-results.is-stacked {
+  grid-template-columns: minmax(0, 1fr);
+  /* 上块至少留得下「标题 + MOD 筛选 + 表头 + 两行」，下块至少留 160px；
+     容器真的不够高时整块可以上下滚，保证两块都够得着 */
+  grid-template-rows: minmax(0, 42%) 12px minmax(0, 1fr);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 
-  .python-profiler-call-details {
-    border-top: 1px solid var(--panel-border);
-  }
+.python-profiler-results.is-stacked .python-profiler-call-details {
+  border-top: 0;
+}
 
-  .python-profiler-splitter {
-    display: none;
-  }
+/* 上下堆叠时分隔条转为横向，可拖动改变两个面板的高度 */
+.python-profiler-results.is-stacked .python-profiler-splitter {
+  width: auto;
+  height: 12px;
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
+  cursor: row-resize;
+}
+
+/* 抓手：一排三个点，一眼能看出这里能上下拖 */
+.python-profiler-results.is-stacked .python-profiler-splitter::after {
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--vscode-descriptionForeground);
+  background-image: radial-gradient(circle, currentColor 1.5px, transparent 1.6px);
+  background-size: 10px 4px;
+  background-repeat: repeat-x;
+  opacity: 0.7;
+  transform: translate(-50%, -50%);
+}
+
+.python-profiler-results.is-stacked .python-profiler-splitter:hover::after,
+.python-profiler-results.is-stacked .python-profiler-splitter:focus-visible::after {
+  background-color: var(--vscode-focusBorder);
+  opacity: 1;
+}
+
+/* 窄屏去掉「调用次数」列，让函数名和时间列都放得下，不再横向裁切 */
+.python-profiler-results.is-stacked .python-profiler-table-header,
+.python-profiler-results.is-stacked .python-profiler-table button {
+  column-gap: 6px;
+}
+
+.python-profiler-results.is-stacked .python-profiler-table-header > span:nth-child(3),
+.python-profiler-results.is-stacked .python-profiler-table button > span:nth-child(3) {
+  display: none;
+}
+
+.python-profiler-results.is-stacked .python-profiler-table-header {
+  padding: 0 8px;
+}
+
+.python-profiler-results.is-stacked .python-profiler-table button {
+  min-width: 0;
+  padding: 5px 8px;
+}
+
+.python-profiler-results.is-stacked .python-profiler-navigation-hint {
+  display: none;
 }
 
 .python-memory-workspace {
@@ -3689,7 +4019,7 @@ body[data-view="studio"] #root {
   }
 
   .debug-session-controls {
-    grid-template-columns: minmax(220px, 1fr) minmax(120px, auto) 30px;
+    grid-template-columns: minmax(220px, 1fr) minmax(120px, auto) auto;
   }
 
   .code-execution-grid {
@@ -3719,7 +4049,7 @@ body[data-view="studio"] #root {
 
 @media (max-width: 620px) {
   .debug-session-controls {
-    grid-template-columns: minmax(0, 1fr) 30px;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .debug-session-controls .host-bridge-status {
@@ -3727,9 +4057,25 @@ body[data-view="studio"] #root {
     grid-row: 2;
   }
 
-  .debug-session-controls > .host-bridge-icon-button {
+  .debug-session-controls > .debug-session-buttons {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  .debug-workbench-dock-button {
+    width: auto;
+    min-width: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+  }
+
+  .debug-workbench-dock-label {
+    display: inline;
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
   }
 
   .debug-tool-nav {
@@ -3836,10 +4182,10 @@ body[data-view="studio"] #root {
 @media (max-width: 390px) {
 
   .debug-session-controls {
-    grid-template-columns: minmax(0, 1fr) 30px;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .debug-session-controls > .host-bridge-icon-button {
+  .debug-session-controls > .debug-session-buttons {
     grid-column: 2;
   }
 }
@@ -5177,6 +5523,31 @@ body[data-view="perf-monitor"] #root {
   background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
 }
 
+/* 「有游戏在跑、但没连上宿主」的提示条 */
+.debug-workbench-hint {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 18px;
+  font-size: 11px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--vscode-inputValidation-warningBackground, rgba(204, 167, 0, 0.12));
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.debug-workbench-hint > .codicon {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.debug-workbench-hint-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+}
+
 .studio-actions {
   display: flex;
   flex-wrap: wrap;
@@ -5195,6 +5566,17 @@ body[data-view="perf-monitor"] #root {
   font-family: inherit;
   font-size: 11px;
   cursor: pointer;
+}
+
+.studio-action--scope {
+  padding: 0 6px;
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  background-color: var(--vscode-dropdown-background, var(--vscode-editorWidget-background));
+  border-color: var(--vscode-dropdown-border, var(--vscode-panel-border, transparent));
+}
+
+.studio-action--scope:hover:not(:disabled) {
+  border-color: var(--vscode-focusBorder);
 }
 
 .studio-action--start {
@@ -5590,4 +5972,571 @@ body[data-view="perf-monitor"] #root {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 采集历史：整行可点击回看（只读） */
+.python-profiler-history-list li.python-profiler-history-row {
+  cursor: pointer;
+}
+
+.python-profiler-history-list li.python-profiler-history-row:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.python-profiler-history-list li.python-profiler-history-row.is-reviewing {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 14%, transparent);
+}
+
+/* 回看横幅 */
+.python-profiler-review {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background-color: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
+  color: var(--vscode-foreground);
+  font-size: 10px;
+}
+
+.python-profiler-review > .codicon-history {
+  color: var(--vscode-focusBorder);
+  font-size: 12px;
+}
+
+.python-profiler-review > span:nth-child(2) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 窄屏堆叠时「调用详情」标题栏也是拖动抓手 */
+.python-profiler-results.is-stacked .python-profiler-call-details > header.is-resize-handle {
+  cursor: row-resize;
+  user-select: none;
+}
+
+/* 「热点函数」标题栏的 ↑/↓ 高度微调按钮 */
+.python-profiler-height-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.python-profiler-height-controls button {
+  width: 20px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.python-profiler-height-controls button:hover,
+.python-profiler-height-controls button:focus-visible {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+  outline: none;
+}
+
+.python-profiler-height-controls .codicon {
+  font-size: 11px;
+}
+
+/* 「采集历史 ↔ 结果区」之间的拖动横条：往上拖＝历史变矮、函数区变大 */
+.python-profiler-history-splitter {
+  flex: 0 0 12px;
+  height: 12px;
+  min-height: 12px;
+  border: 0;
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
+  cursor: row-resize;
+  touch-action: none;
+  position: relative;
+  z-index: 3;
+}
+
+.python-profiler-history-splitter::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 4px;
+  border-radius: 2px;
+  color: var(--vscode-descriptionForeground);
+  background-color: currentColor;
+  background-image: radial-gradient(circle, currentColor 1.5px, transparent 1.6px);
+  background-size: 10px 4px;
+  background-repeat: repeat-x;
+  opacity: 0.7;
+  transform: translate(-50%, -50%);
+  content: '';
+}
+
+.python-profiler-history-splitter:hover,
+.python-profiler-history-splitter:focus-visible {
+  border-color: var(--vscode-focusBorder);
+  outline: none;
+}
+
+.python-profiler-history-splitter:hover::after,
+.python-profiler-history-splitter:focus-visible::after {
+  color: var(--vscode-focusBorder);
+  opacity: 1;
+}
+
+/* 「函数名 / 路径 / 上下文」列宽拖动抓手（挂在表头第一格右边缘） */
+.python-profiler-name-header {
+  position: relative;
+  min-width: 0;
+  overflow: visible;
+}
+
+.python-profiler-col-resizer {
+  position: absolute;
+  top: -6px;
+  right: -5px;
+  bottom: -6px;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 4;
+}
+
+.python-profiler-col-resizer::after {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: 1px;
+  background-color: var(--vscode-descriptionForeground);
+  /* 平时不画线，鼠标移上来才显示，避免看起来像多余的竖线 */
+  opacity: 0;
+  content: '';
+}
+
+.python-profiler-col-resizer:hover::after,
+.python-profiler-col-resizer:focus-visible::after {
+  background-color: var(--vscode-focusBorder);
+  opacity: 1;
+}
+
+/* 窄屏行高不再硬钉 58px，三行文字按内容完整显示 */
+.python-profiler-results.is-stacked .python-profiler-table button {
+  min-height: 0;
+  padding: 6px 8px;
+}
+
+/* 表头下边缘的上下拖动条：改每一行的高度（往上＝变矮多看行，往下＝变高文字完整） */
+.python-profiler-table-header {
+  position: relative;
+}
+
+.python-profiler-row-resizer {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 64px;
+  height: 12px;
+  transform: translateX(-50%);
+  cursor: row-resize;
+  touch-action: none;
+  z-index: 5;
+}
+
+.python-profiler-row-resizer::after {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background-color: var(--vscode-descriptionForeground);
+  opacity: 0.6;
+  transform: translateX(-50%);
+  content: '';
+}
+
+.python-profiler-row-resizer:hover::after,
+.python-profiler-row-resizer:focus-visible::after {
+  background-color: var(--vscode-focusBorder);
+  opacity: 1;
+}
+
+.python-profiler-results.is-stacked .python-profiler-table button {
+  min-height: var(--python-profiler-row-height, 0px);
+}
+
+/* 列表始终可以上下滚（滚轮/键盘），并阻止滚到边界时带动外层 */
+.python-profiler-table {
+  overscroll-behavior: contain;
+}
+
+/* 分隔条上的可见文字标签：明确告诉用户这里能上下拖 */
+.python-profiler-splitter-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 0 7px;
+  border-radius: 999px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
+  color: var(--vscode-descriptionForeground);
+  font-size: 9px;
+  line-height: 12px;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.python-profiler-splitter:hover .python-profiler-splitter-label {
+  color: var(--vscode-focusBorder);
+}
+
+/* 「热点函数」可以整块浮起来，摆到面板任意位置（右下角还能拖大小） */
+.python-profiler-functions.is-floating {
+  position: fixed;
+  z-index: 40;
+  width: 360px;
+  height: 320px;
+  min-width: 220px;
+  min-height: 160px;
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 6px;
+  background-color: var(--vscode-editor-background);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  resize: both;
+}
+
+.python-profiler-results.is-functions-floating {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.python-profiler-results.is-functions-floating .python-profiler-splitter {
+  display: none;
+}
+
+.python-profiler-float-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  cursor: grab;
+  touch-action: none;
+}
+
+.python-profiler-float-handle:hover {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(120, 120, 120, 0.18));
+}
+
+.python-profiler-float-handle .codicon {
+  font-size: 12px;
+}
+
+.python-profiler-float-reset {
+  width: 20px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  cursor: pointer;
+}
+
+.python-profiler-float-reset:hover {
+  color: var(--vscode-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+/* 「热点函数」标题栏整条都能拖（按钮除外），光标提示可移动 */
+.python-profiler-functions > header {
+  cursor: move;
+}
+
+.python-profiler-functions.is-floating > header {
+  cursor: grabbing;
+}
+
+/* 表头任意列都能按住左右拖，换到别的位置 */
+.python-profiler-col-header {
+  cursor: grab;
+  user-select: none;
+}
+
+.python-profiler-col-header:active {
+  cursor: grabbing;
+}
+
+/* 工具页签渲染异常时的兜底面板：宁可显示一段错误文本，也不要整块变空白 */
+.debug-tool-error {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.debug-tool-error h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.debug-tool-error pre {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+/* 面板高度不够时，三块各自滚：函数列表、调用详情、历史列表都不再被裁掉 */
+.python-profiler-call-content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.python-profiler-history-list {
+  overflow-y: auto;
+}
+
+/* 历史行上的「复制给 Agent」按钮：和 A/B 胶囊同排，点一下不用先回看 */
+.python-profiler-history-chips .python-profiler-history-agent {
+  color: var(--vscode-charts-green, #4ec9b0);
+}
+
+/* 兜底：堆叠时函数区至少留住表头和两行；真的放不下就让结果区整体滚，
+   绝不再出现「内容被裁在容器外、怎么滚都看不见」的状态 */
+.python-profiler-results.is-stacked .python-profiler-functions {
+  min-height: 120px;
+}
+
+/* 函数名下面的 module:line 允许折行：完整 mod 路径比整齐的单行更重要 */
+.python-profiler-function-name small {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+/* 浮起来的「热点函数」窗口里同样要能滚 */
+.python-profiler-functions.is-floating .python-profiler-table {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.python-profiler-functions.is-floating .python-profiler-mod-filter {
+  max-height: min(40%, 132px);
+}
+
+/* 函数名也放开到两行：窄面板里光靠省略号认不出是哪个函数 */
+.python-profiler-function-name strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.python-profiler-function-name small {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- 调试开关（能见度 / find mobs / 区块地图等） ---- */
+.debug-switches-workspace {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.debug-switches-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.debug-switches-hint {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.debug-switches-toolbar .btn-link-compact {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.debug-switches-banner {
+  padding: 7px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-editorWidget-background, transparent);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.debug-switches-banner.error {
+  border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.debug-switches-banner.ok {
+  border-color: var(--vscode-inputValidation-infoBorder, #3794ff);
+}
+
+.debug-switches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.debug-switches-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, var(--vscode-input-background));
+}
+
+.debug-switches-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.debug-switches-label {
+  color: var(--vscode-foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.debug-switches-key {
+  overflow: hidden;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-switches-state {
+  padding: 2px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.debug-switches-state.on {
+  border-color: var(--vscode-testing-iconPassed, #388a34);
+  color: var(--vscode-testing-iconPassed, #388a34);
+}
+
+.debug-switches-state.off {
+  color: var(--vscode-descriptionForeground);
+}
+
+.debug-switches-state.unknown {
+  border-style: dashed;
+}
+
+.debug-switches-actions {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  background: var(--vscode-input-background);
+}
+
+.debug-switches-actions button {
+  min-width: 40px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.debug-switches-actions button:hover:not(:disabled) {
+  color: var(--vscode-foreground);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.debug-switches-actions button.active {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.debug-switches-actions button:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+@media (max-width: 560px) {
+  .debug-switches-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .debug-switches-actions {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+.debug-switches-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }

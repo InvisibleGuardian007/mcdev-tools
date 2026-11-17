@@ -85,52 +85,53 @@ test('resolveWorldModDirs 把工作区根写成 ./ 并把找不到的包记为 u
     }
 });
 
-test('applyWorldAutoMods 重写 included_mod_dirs 并保留原有条目的开关', () => {
+test('applyWorldAutoMods 按选中存档精确重写 included_mod_dirs', () => {
     const ctx = setup();
     try {
         const configPath = path.join(ctx.workspace, '.mcdev.json');
+        const manualDir = path.join(ctx.root, 'ManualMod');
         fs.writeFileSync(
             configPath,
             JSON.stringify({
                 world_folder_name: '魔物娘项目3.10',
-                // 第三个目录该存档没引用，装配时会被移出列表
-                included_mod_dirs: ['./', { path: ctx.sibling, enabled: false }, path.join(ctx.root, 'UnusedMod')],
+                // 手工目录 + 该存档没引用的目录：只有手动同步才会被重写
+                included_mod_dirs: [manualDir, { path: ctx.sibling, enabled: false }],
             }),
             'utf8',
         );
         const result = applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot });
         assert.equal(result.status, 'applied');
-        assert.equal(result.dirs.length, 2);
+        assert.deepEqual(result.dirs, ['./', ctx.sibling]);
         const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         // 未引用的目录被移出，原有条目的 enabled 开关保留
         assert.deepEqual(saved.included_mod_dirs, ['./', { path: ctx.sibling, enabled: false }]);
         assert.deepEqual(readIncludedModDirs(ctx.workspace), ['./', ctx.sibling]);
 
         // 再次执行应判定为无需改动
-        const again = applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot });
-        assert.equal(again.status, 'unchanged');
+        assert.equal(applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot }).status, 'unchanged');
     } finally {
         fs.rmSync(ctx.root, { recursive: true, force: true });
     }
 });
 
-test('applyWorldAutoMods 尊重 world_auto_mods=false，force 时仍然生效', () => {
+test('applyWorldAutoMods 未选存档或存档还没生成时保持当前列表', () => {
     const ctx = setup();
     try {
         const configPath = path.join(ctx.workspace, '.mcdev.json');
+        const manualDir = path.join(ctx.root, 'ManualMod');
+        fs.writeFileSync(configPath, JSON.stringify({ included_mod_dirs: ['./', manualDir] }), 'utf8');
+        const skipped = applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot });
+        assert.equal(skipped.status, 'skipped');
+        assert.deepEqual(readIncludedModDirs(ctx.workspace), ['./', manualDir]);
+
         fs.writeFileSync(
             configPath,
-            JSON.stringify({
-                world_folder_name: '魔物娘项目3.10',
-                world_auto_mods: false,
-                included_mod_dirs: ['./', { path: ctx.sibling, enabled: false }, path.join(ctx.root, 'UnusedMod')],
-            }),
+            JSON.stringify({ world_folder_name: '还不存在的存档', included_mod_dirs: ['./', manualDir] }),
             'utf8',
         );
-        assert.equal(applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot }).status, 'skipped');
-        const forced = applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot, force: true });
-        assert.equal(forced.status, 'applied');
-        assert.equal(forced.dirs.length, 2);
+        const missing = applyWorldAutoMods(ctx.workspace, { worldsRoot: ctx.worldsRoot });
+        assert.equal(missing.status, 'skipped');
+        assert.deepEqual(readIncludedModDirs(ctx.workspace), ['./', manualDir]);
     } finally {
         fs.rmSync(ctx.root, { recursive: true, force: true });
     }

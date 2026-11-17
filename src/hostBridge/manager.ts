@@ -12,6 +12,10 @@ const INSTANCE_ID_KEY = 'hostBridge.instanceId';
 const PORT_KEY = 'hostBridge.port';
 const CREDENTIALS_KEY_PREFIX = 'mcdev-tools.hostBridge.credentials';
 const PRUNE_INTERVAL_MS = 10 * 60 * 1_000;
+/** 死会话巡检间隔：游戏进程没了就把它从列表里摘掉，别让界面一直显示「存档不可用」。 */
+const SESSION_SWEEP_INTERVAL_MS = 4_000;
+/** 没有已连接会话时，隔这么久扫一次本机游戏进程，好在界面上提示「游戏在跑但没连上」。 */
+const PROCESS_PROBE_INTERVAL_MS = 15_000;
 /** 固定端口的起点；被占用时 server 会顺延 10 位，最后才退回随机端口。 */
 export const DEFAULT_HOST_BRIDGE_PORT = 19190;
 
@@ -20,8 +24,11 @@ export class HostBridgeManager implements vscode.Disposable {
     private readonly terminalRegistrations = new Map<vscode.Terminal, string>();
     private readonly terminalSubscription: vscode.Disposable;
     private readonly pruneTimer: NodeJS.Timeout;
+    private readonly sweepTimer: NodeJS.Timeout;
     private disposePromise?: Promise<void>;
     private disposed = false;
+    private lastProbeAt = 0;
+    private probing?: Promise<void>;
 
     private tokenPromise?: Promise<string>;
 
@@ -47,6 +54,8 @@ export class HostBridgeManager implements vscode.Disposable {
 
         this.pruneTimer = setInterval(() => this.server.pruneRegistrations(), PRUNE_INTERVAL_MS);
         this.pruneTimer.unref?.();
+        this.sweepTimer = setInterval(() => this.sweepTick(), SESSION_SWEEP_INTERVAL_MS);
+        this.sweepTimer.unref?.();
     }
 
     public static async create(
@@ -81,6 +90,7 @@ export class HostBridgeManager implements vscode.Disposable {
         const token = await this.resolveToken();
         const launch = this.server.registerLaunch(workspacePath, { token });
         await this.context.workspaceState.update(PORT_KEY, this.server.port);
+        void this.probeGameProcesses();
         return launch;
     }
 
@@ -97,6 +107,7 @@ export class HostBridgeManager implements vscode.Disposable {
             await this.server.start(this.readPreferredPort());
         }
         this.server.registerLaunch(workspacePath, { token: await this.resolveToken() });
+        void this.probeGameProcesses();
     }
 
     /** 读配置里的固定端口；非法值退回默认值。 */
@@ -157,9 +168,49 @@ export class HostBridgeManager implements vscode.Disposable {
         return this.server.request(sessionId, 'game/reload', { addons: options.addons === true }, 60_000);
     }
 
+    /**
+     * 界面上的「刷新」：先纠正死会话、再扫本机进程、最后向已连接的会话要一次最新快照。
+     * 这样点了刷新就能得到明确结论（已连接 / 游戏在跑但没连上 / 没有游戏）。
+     */
     public async refreshSessions(): Promise<void> {
-        // Explicit UI refresh only. Session readiness otherwise comes from stateChanged notifications.
+        this.server.sweepDeadSessions();
+        await this.probeGameProcesses();
         await this.server.refreshSessions();
+        await this.probeGameProcesses();
+    }
+
+    /** 每 4 秒巡检一次：清死会话；顺带在没有会话时探测游戏进程。 */
+    private sweepTick(): void {
+        if (this.disposed) {
+            return;
+        }
+        try {
+            this.server.sweepDeadSessions();
+        } catch (error) {
+            console.error('Failed to sweep host bridge sessions', error);
+        }
+        const hasConnected = this.server.getSnapshot().sessions.some(session => session.connected);
+        if (!hasConnected && Date.now() - this.lastProbeAt > PROCESS_PROBE_INTERVAL_MS) {
+            void this.probeGameProcesses();
+        }
+    }
+
+    /** 扫一次本机游戏 / mcdk 进程；并发调用合并成一次。 */
+    private probeGameProcesses(): Promise<void> {
+        if (this.probing) {
+            return this.probing;
+        }
+        if (this.disposed) {
+            return Promise.resolve();
+        }
+        this.lastProbeAt = Date.now();
+        this.probing = this.server.refreshProcessProbe().then(
+            () => undefined,
+            error => console.error('Failed to probe game processes', error)
+        ).finally(() => {
+            this.probing = undefined;
+        });
+        return this.probing;
     }
 
     public dispose(): void {
@@ -176,6 +227,7 @@ export class HostBridgeManager implements vscode.Disposable {
     private async performDispose(): Promise<void> {
         this.disposed = true;
         clearInterval(this.pruneTimer);
+        clearInterval(this.sweepTimer);
         this.terminalSubscription.dispose();
         this.terminalRegistrations.clear();
         await this.server.dispose();

@@ -7,6 +7,7 @@ import { PythonMemoryProfilerTool } from './components/debugger/PythonMemoryProf
 import { PythonCombinedTool } from './components/debugger/PythonCombinedTool';
 import { NativeProfilerTool } from './components/debugger/NativeProfilerTool';
 import { PerfMonitorTool } from './components/debugger/PerfMonitorTool';
+import { DebugSwitchesTool } from './components/debugger/DebugSwitchesTool';
 
 /** 所有页签的唯一来源，DebugApp（原版全量）与 StudioApp（自用排版）都从这里取，避免重复定义 */
 
@@ -35,21 +36,27 @@ export const pythonPairTool: DebugToolDefinition = {
   id: 'python-pair',
   icon: 'codicon-pulse',
   label: t => t.pythonCombinedTab,
-  render: ({ session, t, sync }) => <PythonCombinedTool session={session} t={t} sync={sync} />,
+  render: ({ session, t, sync, topBarCapture }) => (
+    <PythonCombinedTool session={session} t={t} sync={sync} topBarCapture={topBarCapture} />
+  ),
 };
 
 export const pythonProfilerTool: DebugToolDefinition = {
   id: 'python-profiler',
   icon: 'codicon-pulse',
   label: t => t.pythonProfilerTab,
-  render: ({ session, t, sync }) => <PythonProfilerTool session={session} t={t} sync={sync} />,
+  render: ({ session, t, sync, topBarCapture }) => (
+    <PythonProfilerTool session={session} t={t} sync={sync} topBarCapture={topBarCapture} />
+  ),
 };
 
 export const pythonMemoryTool: DebugToolDefinition = {
   id: 'python-memory',
   icon: 'codicon-database',
   label: t => t.pythonMemoryTab,
-  render: ({ session, t, sync }) => <PythonMemoryProfilerTool session={session} t={t} sync={sync} />,
+  render: ({ session, t, sync, topBarCapture }) => (
+    <PythonMemoryProfilerTool session={session} t={t} sync={sync} topBarCapture={topBarCapture} />
+  ),
 };
 
 export const nativeProfilerTool: DebugToolDefinition = {
@@ -66,11 +73,19 @@ export const perfMonitorTool: DebugToolDefinition = {
   render: ({ session, t }) => <PerfMonitorTool session={session} t={t} />,
 };
 
+export const debugSwitchesTool: DebugToolDefinition = {
+  id: 'debug-switches',
+  icon: 'codicon-symbol-boolean',
+  label: t => t.debugSwitchesTab,
+  render: ({ session, t }) => <DebugSwitchesTool session={session} t={t} />,
+};
+
 /** 原版全量面板 */
 export const DEBUG_TOOLS: DebugToolDefinition[] = [
   codeExecutionTool,
   debugFunctionsTool,
   uiDebuggerTool,
+  debugSwitchesTool,
   pythonProfilerTool,
   pythonMemoryTool,
   nativeProfilerTool,
@@ -81,6 +96,7 @@ export const DEBUG_TOOLS: DebugToolDefinition[] = [
 export const STUDIO_TOOLS: DebugToolDefinition[] = [
   pythonPairTool,
   perfMonitorTool,
+  debugSwitchesTool,
   uiDebuggerTool,
   nativeProfilerTool,
   codeExecutionTool,
